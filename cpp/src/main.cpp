@@ -375,6 +375,14 @@ int color_for_kind(const std::string& kind) {
     return 1;
 }
 
+std::string session_name_from_key(const std::string& key) {
+    if (key.rfind("agent:", 0) != 0) return key;
+    auto first = key.find(':');
+    auto second = key.find(':', first + 1);
+    if (second == std::string::npos || second + 1 >= key.size()) return key;
+    return key.substr(second + 1);
+}
+
 int color_for_channel(const std::string& channel) {
     if (channel == "tui") return 6;
     if (channel == "telegram") return 3;
@@ -483,7 +491,7 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V15");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V16");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
@@ -541,11 +549,7 @@ int main() {
                     attroff(A_BOLD | COLOR_PAIR(4));
                     if (row >= LINES - 1) break;
                 }
-                std::string key_short = s.key;
-                if (key_short.rfind("agent:", 0) == 0) {
-                    auto p = key_short.find(':', 6);
-                    if (p != std::string::npos && p + 1 < key_short.size()) key_short = key_short.substr(p + 1);
-                }
+                std::string session_name = session_name_from_key(s.key);
                 mvprintw(row, 2, "  - ");
                 attron(COLOR_PAIR(color_for_status(s.status)) | A_BOLD);
                 mvprintw(row, 6, "%s", shorten(s.status, 10).c_str());
@@ -560,7 +564,7 @@ int main() {
                 mvprintw(row, 32, "%s", shorten(channel, 9).c_str());
                 attroff(COLOR_PAIR(color_for_channel(channel)) | A_BOLD);
                 std::string model_short = s.model.empty() ? "-" : s.model;
-                mvprintw(row, 42, " | %s", shorten(key_short, 18).c_str());
+                mvprintw(row, 42, " | %s", shorten(session_name, 18).c_str());
                 mvprintw(row, 62, " | %s", shorten(model_short, left_w - 68).c_str());
                 row++;
             }
