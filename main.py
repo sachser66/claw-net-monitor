@@ -7,6 +7,8 @@ import time
 
 from collector import Collector, Snapshot
 
+FLOW_CHARS = ['>', '»', '›', '→']
+
 
 def fmt_rate(value: float) -> str:
     units = ['B/s', 'KB/s', 'MB/s', 'GB/s']
@@ -16,16 +18,6 @@ def fmt_rate(value: float) -> str:
             return f'{size:6.1f} {unit}'
         size /= 1024.0
     return f'{size:.1f} GB/s'
-
-
-def fmt_bytes(value: int) -> str:
-    units = ['B', 'KB', 'MB', 'GB', 'TB']
-    size = float(value)
-    for unit in units:
-        if size < 1024.0 or unit == units[-1]:
-            return f'{size:,.1f} {unit}'
-        size /= 1024.0
-    return f'{size:.1f} TB'
 
 
 def bar(value: float, max_value: float, width: int) -> str:
@@ -43,6 +35,14 @@ def put(stdscr: curses.window, y: int, x: int, text: str) -> None:
         stdscr.addnstr(y, x, text, max(0, w - x - 1))
 
 
+def flow_line(label: str, value: str, tick: int, width: int) -> str:
+    width = max(12, width)
+    phase = tick % max(4, width - 2)
+    chars = ['-'] * width
+    chars[phase % width] = FLOW_CHARS[tick % len(FLOW_CHARS)]
+    return f'{label:<9} [{"".join(chars)}] {value}'
+
+
 async def producer(queue: asyncio.Queue[Snapshot]) -> None:
     collector = Collector(interval=1.0)
     while True:
@@ -56,10 +56,10 @@ async def producer(queue: asyncio.Queue[Snapshot]) -> None:
         await asyncio.sleep(collector.interval)
 
 
-def draw(stdscr: curses.window, snapshot: Snapshot | None) -> bool:
+def draw(stdscr: curses.window, snapshot: Snapshot | None, tick: int) -> bool:
     stdscr.erase()
     height, width = stdscr.getmaxyx()
-    put(stdscr, 0, 0, 'claw-net-monitor v2  |  q quit')
+    put(stdscr, 0, 0, 'claw-net-monitor v3  |  q quit')
 
     if snapshot is None:
         put(stdscr, 2, 0, 'Warte auf ersten Snapshot...')
@@ -69,14 +69,14 @@ def draw(stdscr: curses.window, snapshot: Snapshot | None) -> bool:
     ts = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(snapshot.timestamp))
     put(stdscr, 1, 0, f'Snapshot: {ts}')
 
-    left_w = max(40, width // 2)
+    left_w = max(38, width // 2 - 1)
     right_x = left_w + 2
     max_rate = max((i.rx_rate + i.tx_rate) for i in snapshot.interfaces) if snapshot.interfaces else 0.0
 
     put(stdscr, 3, 0, 'INTERFACES')
     row = 4
     bar_width = max(8, min(18, left_w // 5))
-    for iface in snapshot.interfaces[: max(1, height - 8)]:
+    for iface in snapshot.interfaces[: min(8, max(1, height - 10))]:
         total_rate = iface.rx_rate + iface.tx_rate
         line = (
             f'{iface.name:<10} '
@@ -87,44 +87,50 @@ def draw(stdscr: curses.window, snapshot: Snapshot | None) -> bool:
         )
         put(stdscr, row, 0, line)
         row += 1
-        if row >= height - 2:
+
+    put(stdscr, row + 1, 0, 'OPENCLAW SESSIONS')
+    srow = row + 2
+    sessions = (snapshot.openclaw or {}).get('sessions') or []
+    for sess in sessions[: max(1, height - srow - 2)]:
+        model = str(sess.get('model', '?')).split('/')[-1]
+        put(stdscr, srow, 0, f"{sess['agentId']:<6} {sess['kind']:<8} {model:<12} {sess['key']}")
+        srow += 1
+        if srow >= height - 1:
             break
 
-    put(stdscr, 3, right_x, 'TOPOLOGY')
-    row = 4
-    for line in snapshot.topology[:6]:
-        put(stdscr, row, right_x, line)
-        row += 1
+    put(stdscr, 3, right_x, 'FLOW MAP')
+    flow_row = 4
+    flow_width = max(12, min(20, width - right_x - 20))
+    for idx, item in enumerate(snapshot.topology[:6]):
+        put(stdscr, flow_row, right_x, flow_line(item['label'], item['value'], tick + idx * 3, flow_width))
+        flow_row += 1
 
-    conn_row = row + 1
-    put(stdscr, conn_row, right_x, 'CONNECTIONS')
-    conn_row += 1
+    put(stdscr, flow_row + 1, right_x, 'CONNECTION STATES')
     summary = ', '.join(f'{k}:{v}' for k, v in list(snapshot.connections_summary.items())[:6]) or '-'
-    put(stdscr, conn_row, right_x, summary)
-    conn_row += 2
+    put(stdscr, flow_row + 2, right_x, summary)
 
-    put(stdscr, conn_row, right_x, 'TOP FLOWS')
-    conn_row += 1
-    for item in snapshot.top_connections[: min(6, max(0, height - conn_row - 1))]:
+    put(stdscr, flow_row + 4, right_x, 'TOP FLOWS')
+    crow = flow_row + 5
+    for item in snapshot.top_connections[: min(6, max(0, height - crow - 6))]:
         line = f"{item['state']:<11} {item['local']} -> {item['remote']}"
-        put(stdscr, conn_row, right_x, line)
-        conn_row += 1
+        put(stdscr, crow, right_x, line)
+        crow += 1
 
-    bottom = max(row + 8, conn_row + 1)
-    if bottom < height - 1:
-        put(stdscr, bottom, 0, 'OPENCLAW')
-        openclaw = snapshot.openclaw or {}
-        gateway = openclaw.get('gateway') or {}
-        service = gateway.get('service') or {}
-        sessions = openclaw.get('sessions') or []
-        put(stdscr, bottom + 1, 0, f"sessions={openclaw.get('session_count', '?')} service={service.get('label', '?')} loaded={service.get('loaded', '?')}")
-        line_y = bottom + 2
-        for sess in sessions[: max(0, height - line_y - 2)]:
-            put(stdscr, line_y, 0, f"- {sess['agentId']} {sess['kind']} {sess['model']} {sess['key']}")
-            line_y += 1
+    put(stdscr, crow + 1, right_x, 'DOCKER')
+    docker = snapshot.docker or {}
+    networks = docker.get('networks') or []
+    if not docker.get('available'):
+        put(stdscr, crow + 2, right_x, 'docker CLI nicht gefunden')
+    elif not networks:
+        put(stdscr, crow + 2, right_x, 'keine Netzwerke / kein Zugriff')
+    else:
+        drow = crow + 2
+        for net in networks[: max(1, height - drow - 2)]:
+            put(stdscr, drow, right_x, f"{net['name']:<18} {net['driver']:<8} {net['scope']}")
+            drow += 1
 
-        if snapshot.errors and line_y < height:
-            put(stdscr, line_y, 0, 'WARN: ' + ' | '.join(snapshot.errors[:2]))
+    if snapshot.errors:
+        put(stdscr, height - 1, 0, 'WARN: ' + ' | '.join(snapshot.errors[:2]))
 
     stdscr.refresh()
     ch = stdscr.getch()
@@ -134,11 +140,12 @@ def draw(stdscr: curses.window, snapshot: Snapshot | None) -> bool:
 async def app(stdscr: curses.window) -> None:
     curses.curs_set(0)
     stdscr.nodelay(True)
-    stdscr.timeout(200)
+    stdscr.timeout(150)
 
     queue: asyncio.Queue[Snapshot] = asyncio.Queue(maxsize=1)
     task = asyncio.create_task(producer(queue))
     snapshot: Snapshot | None = None
+    tick = 0
     try:
         running = True
         while running:
@@ -146,8 +153,9 @@ async def app(stdscr: curses.window) -> None:
                 snapshot = queue.get_nowait()
             except asyncio.QueueEmpty:
                 pass
-            running = draw(stdscr, snapshot)
-            await asyncio.sleep(0.1)
+            running = draw(stdscr, snapshot, tick)
+            tick += 1
+            await asyncio.sleep(0.12)
     finally:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):

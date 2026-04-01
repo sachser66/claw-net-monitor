@@ -26,8 +26,9 @@ class Snapshot:
     interfaces: list[InterfaceSample]
     connections_summary: dict[str, int]
     top_connections: list[dict[str, str]]
+    docker: dict[str, Any]
     openclaw: dict[str, Any]
-    topology: list[str]
+    topology: list[dict[str, str]]
     errors: list[str] = field(default_factory=list)
 
 
@@ -50,14 +51,16 @@ class Collector:
             self._compute_rates(iface, timestamp)
 
         connections_summary, top_connections = await self._read_ss_summary(errors)
+        docker = await self._read_docker(errors)
         openclaw = await self._read_openclaw(errors)
-        topology = self._build_topology(interfaces, openclaw)
+        topology = self._build_topology(interfaces, docker, openclaw)
 
         return Snapshot(
             timestamp=timestamp,
             interfaces=sorted(interfaces, key=lambda i: (i.rx_rate + i.tx_rate), reverse=True),
             connections_summary=connections_summary,
             top_connections=top_connections,
+            docker=docker,
             openclaw=openclaw,
             topology=topology,
             errors=errors,
@@ -132,13 +135,42 @@ class Collector:
                 continue
             state = parts[0]
             summary[state] = summary.get(state, 0) + 1
-            if len(top_connections) < 8:
+            if len(top_connections) < 10:
                 top_connections.append({
                     'state': state,
                     'local': parts[3],
                     'remote': parts[4],
                 })
         return dict(sorted(summary.items(), key=lambda kv: kv[1], reverse=True)), top_connections
+
+    async def _read_docker(self, errors: list[str]) -> dict[str, Any]:
+        if shutil.which('docker') is None:
+            return {'available': False, 'networks': []}
+        proc = await asyncio.create_subprocess_exec(
+            'docker', 'network', 'ls', '--format', '{{json .}}',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            msg = stderr.decode('utf-8', errors='replace').strip()
+            errors.append(f"docker network ls: {msg or 'failed'}")
+            return {'available': True, 'networks': []}
+        networks = []
+        for line in stdout.decode('utf-8', errors='replace').splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                item = json.loads(line)
+                networks.append({
+                    'name': item.get('Name', '?'),
+                    'driver': item.get('Driver', '?'),
+                    'scope': item.get('Scope', '?'),
+                })
+            except json.JSONDecodeError:
+                continue
+        return {'available': True, 'networks': networks[:8]}
 
     async def _read_openclaw(self, errors: list[str]) -> dict[str, Any]:
         if shutil.which('openclaw') is None:
@@ -152,7 +184,7 @@ class Collector:
         if isinstance(sessions, dict):
             session_count = sessions.get('count')
             raw = sessions.get('sessions') or []
-            for item in raw[:6]:
+            for item in raw[:8]:
                 session_items.append({
                     'key': item.get('key', '?'),
                     'kind': item.get('kind', '?'),
@@ -166,7 +198,7 @@ class Collector:
             'gateway': gateway,
         }
 
-    def _build_topology(self, interfaces: list[InterfaceSample], openclaw: dict[str, Any]) -> list[str]:
+    def _build_topology(self, interfaces: list[InterfaceSample], docker: dict[str, Any], openclaw: dict[str, Any]) -> list[dict[str, str]]:
         internet = []
         lan = []
         vpn = []
@@ -181,13 +213,15 @@ class Collector:
             else:
                 lan.append(iface.name)
 
+        docker_names = [n['name'] for n in (docker.get('networks') or [])[:3]]
         sessions = openclaw.get('session_count') if openclaw else None
         return [
-            'Internet  ->  ' + (', '.join(internet[:3]) if internet else '?'),
-            'LAN       ->  ' + (', '.join(lan[:4]) if lan else '?'),
-            'VPN       ->  ' + (', '.join(vpn[:3]) if vpn else '-'),
-            'Localhost ->  ' + (', '.join(local[:2]) if local else 'lo?'),
-            f'OpenClaw  ->  sessions={sessions if sessions is not None else "?"}',
+            {'label': 'Internet', 'value': ', '.join(internet[:3]) if internet else '?'},
+            {'label': 'LAN', 'value': ', '.join(lan[:4]) if lan else '?'},
+            {'label': 'VPN', 'value': ', '.join(vpn[:3]) if vpn else '-'},
+            {'label': 'Docker', 'value': ', '.join(docker_names) if docker_names else '-'},
+            {'label': 'Localhost', 'value': ', '.join(local[:2]) if local else 'lo?'},
+            {'label': 'OpenClaw', 'value': f'sessions={sessions if sessions is not None else "?"}'},
         ]
 
     def _classify_interface(self, name: str, addresses: list[str]) -> str:
