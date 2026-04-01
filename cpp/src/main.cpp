@@ -206,16 +206,16 @@ std::string summarize_group(const std::vector<InterfaceSample>& interfaces, cons
 void box(int y, int x, int h, int w, const std::string& title, int color_pair) {
     if (h < 3 || w < 4) return;
     attron(COLOR_PAIR(color_pair));
-    mvprintw(y, x, "┌");
-    for (int i = 1; i < w - 1; ++i) mvprintw(y, x + i, "─");
-    mvprintw(y, x + w - 1, "┐");
+    mvprintw(y, x, "+");
+    for (int i = 1; i < w - 1; ++i) mvprintw(y, x + i, "-");
+    mvprintw(y, x + w - 1, "+");
     for (int row = y + 1; row < y + h - 1; ++row) {
-        mvprintw(row, x, "│");
-        mvprintw(row, x + w - 1, "│");
+        mvprintw(row, x, "|");
+        mvprintw(row, x + w - 1, "|");
     }
-    mvprintw(y + h - 1, x, "└");
-    for (int i = 1; i < w - 1; ++i) mvprintw(y + h - 1, x + i, "─");
-    mvprintw(y + h - 1, x + w - 1, "┘");
+    mvprintw(y + h - 1, x, "+");
+    for (int i = 1; i < w - 1; ++i) mvprintw(y + h - 1, x + i, "-");
+    mvprintw(y + h - 1, x + w - 1, "+");
     attron(A_BOLD);
     mvprintw(y, x + 2, " %s ", title.c_str());
     attroff(A_BOLD);
