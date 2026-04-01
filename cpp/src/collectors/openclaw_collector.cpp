@@ -32,8 +32,8 @@ std::vector<OpenClawSession> extract_sessions(const std::string& text) {
         OpenClawSession s;
         s.key = item.value("key", "");
         s.agent = item.value("agentId", "");
-        s.status = item.value("status", "");
-        s.kind = item.value("kind", "");
+        s.status = item.value("status", "-");
+        s.kind = item.value("kind", "?");
         s.display = item.value("displayName", "");
         s.model = item.value("model", "");
         s.model_provider = item.value("modelProvider", "");
@@ -47,8 +47,6 @@ std::vector<OpenClawSession> extract_sessions(const std::string& text) {
             if (second != std::string::npos) s.agent = s.key.substr(first + 1, second - first - 1);
         }
         if (s.agent.empty()) s.agent = "?";
-        if (s.status.empty()) s.status = "-";
-        if (s.kind.empty()) s.kind = "?";
         if (!s.key.empty()) items.push_back(std::move(s));
     }
 
@@ -67,15 +65,18 @@ std::vector<OpenClawAgentConfig> extract_agent_configs(const std::string& text) 
 
     std::string default_primary;
     std::string default_workspace;
+
     if (root.contains("agents") && root["agents"].is_object()) {
         const auto& agents_obj = root["agents"];
+
         if (agents_obj.contains("defaults") && agents_obj["defaults"].is_object()) {
             const auto& defaults = agents_obj["defaults"];
-            if (defaults.contains("model")) {
-                if (defaults["model"].is_string()) default_primary = defaults["model"].get<std::string>();
-                else if (defaults["model"].is_object()) default_primary = defaults["model"].value("primary", "");
-            }
             default_workspace = defaults.value("workspace", "");
+            if (defaults.contains("model")) {
+                const auto& model = defaults["model"];
+                if (model.is_string()) default_primary = model.get<std::string>();
+                else if (model.is_object()) default_primary = model.value("primary", "");
+            }
         }
 
         if (agents_obj.contains("list") && agents_obj["list"].is_array()) {
@@ -84,21 +85,27 @@ std::vector<OpenClawAgentConfig> extract_agent_configs(const std::string& text) 
                 a.id = item.value("id", "");
                 a.name = item.value("name", "");
                 a.workspace = item.value("workspace", default_workspace);
+
                 if (item.contains("identity") && item["identity"].is_object()) {
-                    a.emoji = item["identity"].value("emoji", "");
-                    if (a.name.empty()) a.name = item["identity"].value("name", "");
+                    const auto& identity = item["identity"];
+                    a.emoji = identity.value("emoji", "");
+                    if (a.name.empty()) a.name = identity.value("name", "");
                 }
+
                 if (item.contains("model")) {
-                    if (item["model"].is_string()) a.model_primary = item["model"].get<std::string>();
-                    else if (item["model"].is_object()) {
-                        a.model_primary = item["model"].value("primary", "");
-                        if (item["model"].contains("fallbacks") && item["model"]["fallbacks"].is_array()) {
-                            for (const auto& fb : item["model"]["fallbacks"]) {
+                    const auto& model = item["model"];
+                    if (model.is_string()) {
+                        a.model_primary = model.get<std::string>();
+                    } else if (model.is_object()) {
+                        a.model_primary = model.value("primary", "");
+                        if (model.contains("fallbacks") && model["fallbacks"].is_array()) {
+                            for (const auto& fb : model["fallbacks"]) {
                                 if (fb.is_string()) a.model_fallbacks.push_back(fb.get<std::string>());
                             }
                         }
                     }
                 }
+
                 if (a.model_primary.empty()) a.model_primary = default_primary;
                 if (a.name.empty()) a.name = a.id;
                 if (!a.id.empty()) agents.push_back(std::move(a));
@@ -108,7 +115,7 @@ std::vector<OpenClawAgentConfig> extract_agent_configs(const std::string& text) 
 
     if (root.contains("bindings") && root["bindings"].is_array()) {
         for (const auto& binding : root["bindings"]) {
-            std::string agent_id = binding.value("agentId", "");
+            const std::string agent_id = binding.value("agentId", "");
             std::string account_id;
             if (binding.contains("match") && binding["match"].is_object()) {
                 account_id = binding["match"].value("accountId", "");
@@ -131,14 +138,12 @@ GatewayInfo extract_gateway_info(const std::string& text) {
 
     if (root.contains("gateway") && root["gateway"].is_object()) {
         const auto& gateway = root["gateway"];
-        info.port = gateway.contains("port")
-            ? (gateway["port"].is_number_integer() ? std::to_string(gateway["port"].get<int>()) : gateway["port"].dump())
-            : "";
-        if (!info.port.empty() && info.port.front() == '"' && info.port.back() == '"') {
-            info.port = info.port.substr(1, info.port.size() - 2);
-        }
         info.bind = gateway.value("bind", "");
         info.mode = gateway.value("mode", "");
+        if (gateway.contains("port")) {
+            if (gateway["port"].is_number_integer()) info.port = std::to_string(gateway["port"].get<int>());
+            else if (gateway["port"].is_string()) info.port = gateway["port"].get<std::string>();
+        }
         if (gateway.contains("remote") && gateway["remote"].is_object()) {
             info.probe_url = gateway["remote"].value("url", "");
         }
