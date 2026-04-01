@@ -183,6 +183,13 @@ std::string fmt_rate(double value) {
     return out.str();
 }
 
+std::string shorten(const std::string& text, int width) {
+    if (width <= 0) return "";
+    if (static_cast<int>(text.size()) <= width) return text;
+    if (width <= 3) return text.substr(0, width);
+    return text.substr(0, width - 3) + "...";
+}
+
 std::string summarize_group(const std::vector<InterfaceSample>& interfaces, const std::string& group) {
     double rx = 0.0;
     double tx = 0.0;
@@ -196,7 +203,7 @@ std::string summarize_group(const std::vector<InterfaceSample>& interfaces, cons
     }
     if (names.empty()) return group + ": -";
     std::string joined;
-    for (std::size_t i = 0; i < names.size() && i < 3; ++i) {
+    for (std::size_t i = 0; i < names.size() && i < 2; ++i) {
         if (!joined.empty()) joined += ", ";
         joined += names[i];
     }
@@ -229,6 +236,7 @@ int main() {
     curs_set(0);
     nodelay(stdscr, TRUE);
     keypad(stdscr, TRUE);
+    timeout(0);
 
     if (has_colors()) {
         start_color();
@@ -275,62 +283,61 @@ int main() {
         snapshot.openclaw_sessions = extract_session_lines(openclaw_cache.text);
         snapshot.docker_networks = parse_docker_networks(docker_cache.text);
 
-        double max_rate = 0.0;
-        for (const auto& iface : snapshot.interfaces) {
-            max_rate = std::max(max_rate, iface.rx_rate + iface.tx_rate);
-        }
-
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V4");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V5");
         attroff(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, COLS - 12, "q quit");
+        mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
         int left_w = COLS / 2;
+        int right_w = COLS - left_w - 1;
         box(2, 1, 9, left_w - 2, "WO IST TRAFFIC?", 1);
         box(11, 1, 8, left_w - 2, "AKTIVE NETZE", 2);
         box(19, 1, LINES - 20, left_w - 2, "OPENCLAW", 4);
-        box(2, left_w, 10, COLS - left_w - 1, "VERBINDUNGEN", 3);
-        box(12, left_w, LINES - 13, COLS - left_w - 1, "DOCKER", 5);
+        box(2, left_w, 10, right_w, "VERBINDUNGEN", 3);
+        box(12, left_w, LINES - 13, right_w, "DOCKER", 5);
 
-        mvprintw(3, 2, "%s", summarize_group(snapshot.interfaces, "Internet/LAN").c_str());
-        mvprintw(4, 2, "%s", summarize_group(snapshot.interfaces, "Docker").c_str());
-        mvprintw(5, 2, "%s", summarize_group(snapshot.interfaces, "VPN").c_str());
-        mvprintw(6, 2, "%s", summarize_group(snapshot.interfaces, "Localhost").c_str());
-        mvprintw(7, 2, "%s", summarize_group(snapshot.interfaces, "Sonstiges").c_str());
+        mvprintw(3, 2, "%s", shorten("Kurzsicht: welche Netzgruppen gerade Daten bewegen", left_w - 6).c_str());
+        mvprintw(4, 2, "%s", shorten(summarize_group(snapshot.interfaces, "Internet/LAN"), left_w - 6).c_str());
+        mvprintw(5, 2, "%s", shorten(summarize_group(snapshot.interfaces, "Docker"), left_w - 6).c_str());
+        mvprintw(6, 2, "%s", shorten(summarize_group(snapshot.interfaces, "VPN"), left_w - 6).c_str());
+        mvprintw(7, 2, "%s", shorten(summarize_group(snapshot.interfaces, "Localhost"), left_w - 6).c_str());
+        mvprintw(8, 2, "%s", shorten(summarize_group(snapshot.interfaces, "Sonstiges"), left_w - 6).c_str());
 
-        int row = 12;
-        for (std::size_t i = 0; i < snapshot.interfaces.size() && row < 17; ++i) {
+        mvprintw(12, 2, "%s", shorten("Top-Interfaces nach aktuellem Durchsatz", left_w - 6).c_str());
+        int row = 13;
+        for (std::size_t i = 0; i < snapshot.interfaces.size() && row < 18; ++i) {
             const auto& iface = snapshot.interfaces[i];
-            std::string line = iface.name + " (" + iface.group + ")  RX " + fmt_rate(iface.rx_rate) +
-                               "  TX " + fmt_rate(iface.tx_rate);
-            mvprintw(row++, 2, "%s", line.c_str());
+            std::string line = iface.name + " | " + iface.group + " | RX " + fmt_rate(iface.rx_rate) + " | TX " + fmt_rate(iface.tx_rate);
+            mvprintw(row++, 2, "%s", shorten(line, left_w - 6).c_str());
         }
 
-        mvprintw(3, left_w + 2, "Verbindungsarten auf diesem Host:");
-        row = 5;
-        for (std::size_t i = 0; i < snapshot.conn_states.size() && row < 10; ++i) {
-            mvprintw(row++, left_w + 2, "%s: %d", snapshot.conn_states[i].first.c_str(), snapshot.conn_states[i].second);
-        }
-        mvprintw(10, left_w + 2, "Das ist noch eine grobe Host-Sicht, keine echte Flow-Map.");
-
-        mvprintw(20, 2, "Sessions gesamt: %d", snapshot.openclaw_session_count);
+        mvprintw(20, 2, "%s", shorten("OpenClaw-Sessions auf diesem Host", left_w - 6).c_str());
+        mvprintw(21, 2, "Sessions gesamt: %d", snapshot.openclaw_session_count);
         row = 22;
         if (snapshot.openclaw_sessions.empty()) {
             mvprintw(row, 2, "Keine Sessiondaten gefunden.");
         } else {
             for (std::size_t i = 0; i < snapshot.openclaw_sessions.size() && row < LINES - 1; ++i) {
-                mvprintw(row++, 2, "%s", snapshot.openclaw_sessions[i].c_str());
+                mvprintw(row++, 2, "%s", shorten(snapshot.openclaw_sessions[i], left_w - 6).c_str());
             }
         }
 
-        mvprintw(13, left_w + 2, "Vorhandene Docker-Netzwerke:");
+        mvprintw(3, left_w + 2, "%s", shorten("Welche Verbindungsarten sieht der Host gerade?", right_w - 4).c_str());
+        row = 5;
+        for (std::size_t i = 0; i < snapshot.conn_states.size() && row < 10; ++i) {
+            std::string line = snapshot.conn_states[i].first + ": " + std::to_string(snapshot.conn_states[i].second);
+            mvprintw(row++, left_w + 2, "%s", shorten(line, right_w - 4).c_str());
+        }
+        mvprintw(10, left_w + 2, "%s", shorten("Noch grobe Host-Sicht, noch keine echte Paketfluss-Karte.", right_w - 4).c_str());
+
+        mvprintw(13, left_w + 2, "%s", shorten("Vorhandene Docker-Netzwerke auf dem Host", right_w - 4).c_str());
         row = 15;
         if (snapshot.docker_networks.empty()) {
             mvprintw(row, left_w + 2, "Keine Docker-Netze oder kein Zugriff.");
         } else {
             for (std::size_t i = 0; i < snapshot.docker_networks.size() && row < LINES - 1; ++i) {
-                mvprintw(row++, left_w + 2, "%s", snapshot.docker_networks[i].c_str());
+                mvprintw(row++, left_w + 2, "%s", shorten(snapshot.docker_networks[i], right_w - 4).c_str());
             }
         }
 
