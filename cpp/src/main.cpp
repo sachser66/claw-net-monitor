@@ -323,6 +323,18 @@ std::string make_real_flow_line(const std::string& from, const std::string& to, 
     return from + " [" + path + "] " + to + " | " + evidence;
 }
 
+int color_for_status(const std::string& status) {
+    if (status == "running") return 6;
+    if (status == "idle") return 7;
+    return 1;
+}
+
+int color_for_kind(const std::string& kind) {
+    if (kind == "direct") return 8;
+    if (kind == "other") return 9;
+    return 1;
+}
+
 void box(int y, int x, int h, int w, const std::string& title, int color_pair) {
     if (h < 3 || w < 4) return;
     attron(COLOR_PAIR(color_pair));
@@ -359,6 +371,10 @@ int main() {
         init_pair(3, COLOR_YELLOW, -1);
         init_pair(4, COLOR_MAGENTA, -1);
         init_pair(5, COLOR_BLUE, -1);
+        init_pair(6, COLOR_GREEN, -1);
+        init_pair(7, COLOR_YELLOW, -1);
+        init_pair(8, COLOR_CYAN, -1);
+        init_pair(9, COLOR_MAGENTA, -1);
     }
 
     auto last = Clock::now();
@@ -417,7 +433,7 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V11");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V12");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
@@ -461,12 +477,18 @@ int main() {
         if (snapshot.openclaw_session_items.empty()) {
             mvprintw(row, 2, "Keine Sessiondaten gefunden.");
         } else {
+            std::map<std::string, int> agent_counts;
+            for (const auto& s : snapshot.openclaw_session_items) agent_counts[s.agent]++;
+
             std::string current_agent;
             for (std::size_t i = 0; i < snapshot.openclaw_session_items.size() && row < LINES - 1; ++i) {
                 const auto& s = snapshot.openclaw_session_items[i];
                 if (s.agent != current_agent) {
                     current_agent = s.agent;
-                    mvprintw(row++, 2, "%s", shorten("[" + current_agent + "]", left_w - 6).c_str());
+                    std::string header = "[" + current_agent + "] (" + std::to_string(agent_counts[current_agent]) + ")";
+                    attron(A_BOLD | COLOR_PAIR(4));
+                    mvprintw(row++, 2, "%s", shorten(header, left_w - 6).c_str());
+                    attroff(A_BOLD | COLOR_PAIR(4));
                     if (row >= LINES - 1) break;
                 }
                 std::string key_short = s.key;
@@ -474,8 +496,16 @@ int main() {
                     auto p = key_short.find(':', 6);
                     if (p != std::string::npos && p + 1 < key_short.size()) key_short = key_short.substr(p + 1);
                 }
-                std::string line = "  - " + s.status + " | " + s.kind + " | " + key_short;
-                mvprintw(row++, 2, "%s", shorten(line, left_w - 6).c_str());
+                mvprintw(row, 2, "  - ");
+                attron(COLOR_PAIR(color_for_status(s.status)) | A_BOLD);
+                mvprintw(row, 6, "%s", shorten(s.status, 10).c_str());
+                attroff(COLOR_PAIR(color_for_status(s.status)) | A_BOLD);
+                mvprintw(row, 16, " | ");
+                attron(COLOR_PAIR(color_for_kind(s.kind)));
+                mvprintw(row, 19, "%s", shorten(s.kind, 10).c_str());
+                attroff(COLOR_PAIR(color_for_kind(s.kind)));
+                mvprintw(row, 29, " | %s", shorten(key_short, left_w - 35).c_str());
+                row++;
             }
         }
 
