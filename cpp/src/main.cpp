@@ -38,6 +38,14 @@ struct CachedText {
     bool ready = false;
 };
 
+struct GroupStat {
+    std::string name;
+    double rx = 0.0;
+    double tx = 0.0;
+    std::vector<std::string> ifaces;
+    double total() const { return rx + tx; }
+};
+
 static std::map<std::string, std::pair<unsigned long long, unsigned long long>> g_prev;
 
 std::string exec_read(const std::string& cmd) {
@@ -190,24 +198,37 @@ std::string shorten(const std::string& text, int width) {
     return text.substr(0, width - 3) + "...";
 }
 
-std::string summarize_group(const std::vector<InterfaceSample>& interfaces, const std::string& group) {
-    double rx = 0.0;
-    double tx = 0.0;
-    std::vector<std::string> names;
+std::vector<GroupStat> build_group_stats(const std::vector<InterfaceSample>& interfaces) {
+    std::map<std::string, GroupStat> grouped;
     for (const auto& iface : interfaces) {
-        if (iface.group == group) {
-            rx += iface.rx_rate;
-            tx += iface.tx_rate;
-            names.push_back(iface.name);
-        }
+        auto& g = grouped[iface.group];
+        g.name = iface.group;
+        g.rx += iface.rx_rate;
+        g.tx += iface.tx_rate;
+        g.ifaces.push_back(iface.name);
     }
-    if (names.empty()) return group + ": -";
+    std::vector<GroupStat> out;
+    for (auto& [_, stat] : grouped) out.push_back(stat);
+    std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.total() > b.total(); });
+    return out;
+}
+
+std::string summarize_group(const GroupStat& g) {
     std::string joined;
-    for (std::size_t i = 0; i < names.size() && i < 2; ++i) {
+    for (std::size_t i = 0; i < g.ifaces.size() && i < 2; ++i) {
         if (!joined.empty()) joined += ", ";
-        joined += names[i];
+        joined += g.ifaces[i];
     }
-    return group + ": RX " + fmt_rate(rx) + " | TX " + fmt_rate(tx) + " | " + joined;
+    if (joined.empty()) joined = "-";
+    return g.name + ": RX " + fmt_rate(g.rx) + " | TX " + fmt_rate(g.tx) + " | " + joined;
+}
+
+std::string make_flow_line(const std::string& from, const std::string& to, int tick, int width) {
+    width = std::max(8, width);
+    std::string path(width, '-');
+    int pos = tick % width;
+    path[pos] = 'o';
+    return from + " [" + path + "] " + to;
 }
 
 void box(int y, int x, int h, int w, const std::string& title, int color_pair) {
@@ -250,6 +271,7 @@ int main() {
 
     auto last = Clock::now();
     CachedText ss_cache, openclaw_cache, docker_cache;
+    int tick = 0;
 
     while (true) {
         int ch = getch();
@@ -282,35 +304,38 @@ int main() {
         snapshot.openclaw_session_count = parse_session_count(openclaw_cache.text);
         snapshot.openclaw_sessions = extract_session_lines(openclaw_cache.text);
         snapshot.docker_networks = parse_docker_networks(docker_cache.text);
+        auto groups = build_group_stats(snapshot.interfaces);
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V5");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V6");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
         int left_w = COLS / 2;
         int right_w = COLS - left_w - 1;
-        box(2, 1, 9, left_w - 2, "WO IST TRAFFIC?", 1);
-        box(11, 1, 8, left_w - 2, "AKTIVE NETZE", 2);
+        box(2, 1, 10, left_w - 2, "WO IST TRAFFIC?", 1);
+        box(12, 1, 7, left_w - 2, "PAKETFLUSS", 2);
         box(19, 1, LINES - 20, left_w - 2, "OPENCLAW", 4);
         box(2, left_w, 10, right_w, "VERBINDUNGEN", 3);
         box(12, left_w, LINES - 13, right_w, "DOCKER", 5);
 
-        mvprintw(3, 2, "%s", shorten("Kurzsicht: welche Netzgruppen gerade Daten bewegen", left_w - 6).c_str());
-        mvprintw(4, 2, "%s", shorten(summarize_group(snapshot.interfaces, "Internet/LAN"), left_w - 6).c_str());
-        mvprintw(5, 2, "%s", shorten(summarize_group(snapshot.interfaces, "Docker"), left_w - 6).c_str());
-        mvprintw(6, 2, "%s", shorten(summarize_group(snapshot.interfaces, "VPN"), left_w - 6).c_str());
-        mvprintw(7, 2, "%s", shorten(summarize_group(snapshot.interfaces, "Localhost"), left_w - 6).c_str());
-        mvprintw(8, 2, "%s", shorten(summarize_group(snapshot.interfaces, "Sonstiges"), left_w - 6).c_str());
-
-        mvprintw(12, 2, "%s", shorten("Top-Interfaces nach aktuellem Durchsatz", left_w - 6).c_str());
-        int row = 13;
-        for (std::size_t i = 0; i < snapshot.interfaces.size() && row < 18; ++i) {
-            const auto& iface = snapshot.interfaces[i];
-            std::string line = iface.name + " | " + iface.group + " | RX " + fmt_rate(iface.rx_rate) + " | TX " + fmt_rate(iface.tx_rate);
-            mvprintw(row++, 2, "%s", shorten(line, left_w - 6).c_str());
+        mvprintw(3, 2, "%s", shorten("Kurzsicht: welche Netzgruppen gerade am meisten bewegen", left_w - 6).c_str());
+        int row = 4;
+        for (std::size_t i = 0; i < groups.size() && row < 10; ++i) {
+            std::string prefix = (i == 0 && groups[i].total() > 0.0) ? "* " : "  ";
+            mvprintw(row++, 2, "%s", shorten(prefix + summarize_group(groups[i]), left_w - 6).c_str());
         }
+        if (!groups.empty()) {
+            mvprintw(10, 2, "%s", shorten("Staerkste Gruppe gerade: " + groups.front().name, left_w - 6).c_str());
+        }
+
+        mvprintw(13, 2, "%s", shorten("Animierte, vereinfachte Paketwege zwischen Bereichen", left_w - 6).c_str());
+        row = 14;
+        mvprintw(row++, 2, "%s", shorten(make_flow_line("Internet", "LAN", tick, 12), left_w - 6).c_str());
+        mvprintw(row++, 2, "%s", shorten(make_flow_line("LAN", "Docker", tick + 4, 10), left_w - 6).c_str());
+        mvprintw(row++, 2, "%s", shorten(make_flow_line("Docker", "OpenClaw", tick + 8, 8), left_w - 6).c_str());
+        mvprintw(row++, 2, "%s", shorten(make_flow_line("Localhost", "OpenClaw", tick + 2, 8), left_w - 6).c_str());
 
         mvprintw(20, 2, "%s", shorten("OpenClaw-Sessions auf diesem Host", left_w - 6).c_str());
         mvprintw(21, 2, "Sessions gesamt: %d", snapshot.openclaw_session_count);
@@ -342,6 +367,7 @@ int main() {
         }
 
         refresh();
+        tick++;
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
