@@ -6,9 +6,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(claw-net-monitor
-  src/main.cpp
+  src/app/main.cpp
+  src/util/exec.cpp
+  src/util/json.cpp
+  src/collectors/network_collector.cpp
+  src/collectors/openclaw_collector.cpp
+  src/collectors/docker_collector.cpp
+  src/renderers/terminal_renderer.cpp
 )
 
 target_compile_options(claw-net-monitor PRIVATE -O2 -Wall -Wextra -pedantic)
-target_include_directories(claw-net-monitor PRIVATE /usr/include /usr/include/ncursesw)
+target_include_directories(claw-net-monitor PRIVATE /usr/include /usr/include/ncursesw src)
 target_link_libraries(claw-net-monitor PRIVATE ncursesw tinfo)
