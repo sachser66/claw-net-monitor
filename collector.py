@@ -16,6 +16,8 @@ class InterfaceSample:
     rx_rate: float = 0.0
     tx_rate: float = 0.0
     addresses: list[str] = field(default_factory=list)
+    state: str = "unknown"
+    kind: str = "iface"
 
 
 @dataclass
@@ -23,7 +25,9 @@ class Snapshot:
     timestamp: float
     interfaces: list[InterfaceSample]
     connections_summary: dict[str, int]
+    top_connections: list[dict[str, str]]
     openclaw: dict[str, Any]
+    topology: list[str]
     errors: list[str] = field(default_factory=list)
 
 
@@ -37,19 +41,25 @@ class Collector:
         timestamp = time.time()
 
         interfaces = self._read_proc_net_dev(errors)
-        addresses = await self._read_ip_addr(errors)
+        addr_data = await self._read_ip_addr(errors)
         for iface in interfaces:
-            iface.addresses = addresses.get(iface.name, [])
+            meta = addr_data.get(iface.name, {})
+            iface.addresses = meta.get("addresses", [])
+            iface.state = meta.get("state", "unknown")
+            iface.kind = self._classify_interface(iface.name, iface.addresses)
             self._compute_rates(iface, timestamp)
 
-        connections_summary = await self._read_ss_summary(errors)
+        connections_summary, top_connections = await self._read_ss_summary(errors)
         openclaw = await self._read_openclaw(errors)
+        topology = self._build_topology(interfaces, openclaw)
 
         return Snapshot(
             timestamp=timestamp,
             interfaces=sorted(interfaces, key=lambda i: (i.rx_rate + i.tx_rate), reverse=True),
             connections_summary=connections_summary,
+            top_connections=top_connections,
             openclaw=openclaw,
+            topology=topology,
             errors=errors,
         )
 
@@ -82,25 +92,28 @@ class Collector:
             iface.tx_rate = max(0.0, (iface.tx_bytes - prev_tx) / dt)
         self._last_totals[iface.name] = (timestamp, iface.rx_bytes, iface.tx_bytes)
 
-    async def _read_ip_addr(self, errors: list[str]) -> dict[str, list[str]]:
+    async def _read_ip_addr(self, errors: list[str]) -> dict[str, dict[str, Any]]:
         if shutil.which('ip') is None:
             errors.append('command missing: ip')
             return {}
         data = await self._run_json(['ip', '-j', 'addr'], errors, 'ip -j addr')
-        result: dict[str, list[str]] = {}
+        result: dict[str, dict[str, Any]] = {}
         if isinstance(data, list):
             for item in data:
                 name = item.get('ifname')
                 infos = item.get('addr_info') or []
                 addrs = [entry.get('local') for entry in infos if entry.get('local')]
                 if name:
-                    result[name] = addrs
+                    result[name] = {
+                        'addresses': addrs,
+                        'state': item.get('operstate', 'unknown'),
+                    }
         return result
 
-    async def _read_ss_summary(self, errors: list[str]) -> dict[str, int]:
+    async def _read_ss_summary(self, errors: list[str]) -> tuple[dict[str, int], list[dict[str, str]]]:
         if shutil.which('ss') is None:
             errors.append('command missing: ss')
-            return {}
+            return {}, []
         proc = await asyncio.create_subprocess_exec(
             'ss', '-tunap',
             stdout=asyncio.subprocess.PIPE,
@@ -110,15 +123,22 @@ class Collector:
         if proc.returncode != 0:
             msg = stderr.decode('utf-8', errors='replace').strip()
             errors.append(f"ss -tunap: {msg or 'failed'}")
-            return {}
+            return {}, []
         summary: dict[str, int] = {}
+        top_connections: list[dict[str, str]] = []
         for line in stdout.decode('utf-8', errors='replace').splitlines()[1:]:
             parts = line.split()
-            if not parts:
+            if len(parts) < 5:
                 continue
             state = parts[0]
             summary[state] = summary.get(state, 0) + 1
-        return dict(sorted(summary.items(), key=lambda kv: kv[1], reverse=True))
+            if len(top_connections) < 8:
+                top_connections.append({
+                    'state': state,
+                    'local': parts[3],
+                    'remote': parts[4],
+                })
+        return dict(sorted(summary.items(), key=lambda kv: kv[1], reverse=True)), top_connections
 
     async def _read_openclaw(self, errors: list[str]) -> dict[str, Any]:
         if shutil.which('openclaw') is None:
@@ -126,13 +146,61 @@ class Collector:
             return {}
         sessions = await self._run_json(['openclaw', 'sessions', '--json'], errors, 'openclaw sessions --json')
         gateway = await self._run_json(['openclaw', 'gateway', 'status', '--json'], errors, 'openclaw gateway status --json')
+
         session_count = None
+        session_items: list[dict[str, Any]] = []
         if isinstance(sessions, dict):
             session_count = sessions.get('count')
+            raw = sessions.get('sessions') or []
+            for item in raw[:6]:
+                session_items.append({
+                    'key': item.get('key', '?'),
+                    'kind': item.get('kind', '?'),
+                    'agentId': item.get('agentId', '?'),
+                    'model': item.get('model', '?'),
+                })
+
         return {
             'session_count': session_count,
+            'sessions': session_items,
             'gateway': gateway,
         }
+
+    def _build_topology(self, interfaces: list[InterfaceSample], openclaw: dict[str, Any]) -> list[str]:
+        internet = []
+        lan = []
+        vpn = []
+        local = []
+        for iface in interfaces:
+            if iface.name == 'lo':
+                local.append(iface.name)
+            elif iface.kind == 'vpn':
+                vpn.append(iface.name)
+            elif iface.kind == 'internet':
+                internet.append(iface.name)
+            else:
+                lan.append(iface.name)
+
+        sessions = openclaw.get('session_count') if openclaw else None
+        return [
+            'Internet  ->  ' + (', '.join(internet[:3]) if internet else '?'),
+            'LAN       ->  ' + (', '.join(lan[:4]) if lan else '?'),
+            'VPN       ->  ' + (', '.join(vpn[:3]) if vpn else '-'),
+            'Localhost ->  ' + (', '.join(local[:2]) if local else 'lo?'),
+            f'OpenClaw  ->  sessions={sessions if sessions is not None else "?"}',
+        ]
+
+    def _classify_interface(self, name: str, addresses: list[str]) -> str:
+        lname = name.lower()
+        if lname == 'lo':
+            return 'loopback'
+        if lname.startswith(('wg', 'tun', 'tap', 'tailscale')):
+            return 'vpn'
+        if lname.startswith(('eth', 'en', 'wlan', 'wl')):
+            return 'internet'
+        if any(addr.startswith(('10.', '192.168.', '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.')) for addr in addresses):
+            return 'lan'
+        return 'iface'
 
     async def _run_json(self, cmd: list[str], errors: list[str], label: str) -> Any:
         proc = await asyncio.create_subprocess_exec(

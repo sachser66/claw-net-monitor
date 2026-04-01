@@ -37,6 +37,12 @@ def bar(value: float, max_value: float, width: int) -> str:
     return '█' * filled + '░' * (width - filled)
 
 
+def put(stdscr: curses.window, y: int, x: int, text: str) -> None:
+    h, w = stdscr.getmaxyx()
+    if 0 <= y < h and x < w:
+        stdscr.addnstr(y, x, text, max(0, w - x - 1))
+
+
 async def producer(queue: asyncio.Queue[Snapshot]) -> None:
     collector = Collector(interval=1.0)
     while True:
@@ -53,59 +59,72 @@ async def producer(queue: asyncio.Queue[Snapshot]) -> None:
 def draw(stdscr: curses.window, snapshot: Snapshot | None) -> bool:
     stdscr.erase()
     height, width = stdscr.getmaxyx()
-    stdscr.addnstr(0, 0, 'claw-net-monitor MVP  |  q quit', width - 1)
+    put(stdscr, 0, 0, 'claw-net-monitor v2  |  q quit')
 
     if snapshot is None:
-        stdscr.addnstr(2, 0, 'Warte auf ersten Snapshot...', width - 1)
+        put(stdscr, 2, 0, 'Warte auf ersten Snapshot...')
         stdscr.refresh()
         return True
 
     ts = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(snapshot.timestamp))
-    stdscr.addnstr(1, 0, f'Snapshot: {ts}', width - 1)
+    put(stdscr, 1, 0, f'Snapshot: {ts}')
 
+    left_w = max(40, width // 2)
+    right_x = left_w + 2
     max_rate = max((i.rx_rate + i.tx_rate) for i in snapshot.interfaces) if snapshot.interfaces else 0.0
-    row = 3
-    bar_width = max(10, min(28, width // 4))
 
-    stdscr.addnstr(row, 0, 'Interfaces', width - 1)
-    row += 1
-    for iface in snapshot.interfaces[: max(1, height - 12)]:
+    put(stdscr, 3, 0, 'INTERFACES')
+    row = 4
+    bar_width = max(8, min(18, left_w // 5))
+    for iface in snapshot.interfaces[: max(1, height - 8)]:
         total_rate = iface.rx_rate + iface.tx_rate
-        addr = ', '.join(iface.addresses[:2]) if iface.addresses else '-'
         line = (
-            f'{iface.name:<12} '
-            f'RX {fmt_rate(iface.rx_rate):>10}  '
-            f'TX {fmt_rate(iface.tx_rate):>10}  '
-            f'[{bar(total_rate, max_rate, bar_width)}]  '
-            f'tot {fmt_bytes(iface.rx_bytes + iface.tx_bytes):>12}  '
-            f'addr {addr}'
+            f'{iface.name:<10} '
+            f'{iface.state[:4]:<4} '
+            f'R {fmt_rate(iface.rx_rate):>9} '
+            f'T {fmt_rate(iface.tx_rate):>9} '
+            f'{bar(total_rate, max_rate, bar_width)}'
         )
-        stdscr.addnstr(row, 0, line, width - 1)
+        put(stdscr, row, 0, line)
         row += 1
-        if row >= height - 6:
+        if row >= height - 2:
             break
 
-    row += 1
-    conn = ', '.join(f'{k}:{v}' for k, v in list(snapshot.connections_summary.items())[:6]) or '-'
-    stdscr.addnstr(row, 0, f'Connections: {conn}', width - 1)
-    row += 1
-
-    openclaw = snapshot.openclaw or {}
-    session_count = openclaw.get('session_count')
-    gateway = openclaw.get('gateway') or {}
-    service = gateway.get('service') or {}
-    line = f"OpenClaw: sessions={session_count if session_count is not None else '?'} service={service.get('label', '?')} loaded={service.get('loaded', '?')}"
-    stdscr.addnstr(row, 0, line, width - 1)
-    row += 2
-
-    if snapshot.errors:
-        stdscr.addnstr(row, 0, 'Hinweise/Fehler:', width - 1)
+    put(stdscr, 3, right_x, 'TOPOLOGY')
+    row = 4
+    for line in snapshot.topology[:6]:
+        put(stdscr, row, right_x, line)
         row += 1
-        for err in snapshot.errors[: max(1, height - row - 1)]:
-            stdscr.addnstr(row, 0, f'- {err}', width - 1)
-            row += 1
-            if row >= height:
-                break
+
+    conn_row = row + 1
+    put(stdscr, conn_row, right_x, 'CONNECTIONS')
+    conn_row += 1
+    summary = ', '.join(f'{k}:{v}' for k, v in list(snapshot.connections_summary.items())[:6]) or '-'
+    put(stdscr, conn_row, right_x, summary)
+    conn_row += 2
+
+    put(stdscr, conn_row, right_x, 'TOP FLOWS')
+    conn_row += 1
+    for item in snapshot.top_connections[: min(6, max(0, height - conn_row - 1))]:
+        line = f"{item['state']:<11} {item['local']} -> {item['remote']}"
+        put(stdscr, conn_row, right_x, line)
+        conn_row += 1
+
+    bottom = max(row + 8, conn_row + 1)
+    if bottom < height - 1:
+        put(stdscr, bottom, 0, 'OPENCLAW')
+        openclaw = snapshot.openclaw or {}
+        gateway = openclaw.get('gateway') or {}
+        service = gateway.get('service') or {}
+        sessions = openclaw.get('sessions') or []
+        put(stdscr, bottom + 1, 0, f"sessions={openclaw.get('session_count', '?')} service={service.get('label', '?')} loaded={service.get('loaded', '?')}")
+        line_y = bottom + 2
+        for sess in sessions[: max(0, height - line_y - 2)]:
+            put(stdscr, line_y, 0, f"- {sess['agentId']} {sess['kind']} {sess['model']} {sess['key']}")
+            line_y += 1
+
+        if snapshot.errors and line_y < height:
+            put(stdscr, line_y, 0, 'WARN: ' + ' | '.join(snapshot.errors[:2]))
 
     stdscr.refresh()
     ch = stdscr.getch()
