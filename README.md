@@ -1,33 +1,48 @@
 # claw-net-monitor
 
-MVP für Live-Netzwerk-Monitoring im Terminal.
+Live-Netzwerk- und OpenClaw-Monitor mit **C++ Terminal-UI** plus **Mobile-Webansicht**.
 
-## Status
-
-Aktuell als **stdlib-MVP** umgesetzt, weil auf dem Host weder `pip` noch `ensurepip` verfügbar sind. Dadurch konnten `textual`, `psutil` und `docker` noch nicht installiert werden.
-
-Trotzdem enthält das Projekt bereits:
-
-- asynchronen Collector (`asyncio`)
-- Interface-Traffic aus `/proc/net/dev`
-- Interface-Adressen via `ip -j addr`
-- Connection-Snapshot via `ss -tunap`
-- OpenClaw-Snapshot via `openclaw sessions --json` und `openclaw gateway status --json`
-- einfache Live-TUI mit ASCII-Balken via `curses`
-
-## Start
+## Morgen-früh-Start
 
 ```bash
-python3 main.py
+./run.sh
 ```
 
-Beenden mit `q` oder `Ctrl+C`.
+Dann bekommst du gleichzeitig:
+- Terminal-Monitor lokal
+- Browser/iPhone-Ansicht über HTTP
 
-## Nächste Schritte
+Das Script zeigt dir beim Start direkt die aufrufbare URL an.
 
-Sobald Python-Paketinstallation möglich ist:
+## Standard-URL
 
-1. `textual`-UI statt `curses`
-2. `psutil`-Fallbacks/Erweiterungen
-3. Docker-Stats via SDK/CLI
-4. Topologie-Erkennung und animierte Paket-Flows
+```text
+http://<HOST-IP>:8080
+```
+
+JSON-State:
+
+```text
+http://<HOST-IP>:8080/api/state
+```
+
+## Falls du einen anderen Port willst
+
+```bash
+CLAW_MONITOR_PORT=8090 ./run.sh
+```
+
+## Was aktuell drin ist
+
+- Host-Netztraffic aus `/proc/net/dev`
+- Verbindungszustände via `ss`
+- OpenClaw Sessions aller Agenten
+- OpenClaw Agent-Config aus `~/.openclaw/openclaw.json`
+- Gateway-Infos
+- Docker-Netze + laufende Container
+- gemeinsame Datenbasis für TUI + iPhone
+
+## Kurzbedienung
+
+- Start: `./run.sh`
+- Beenden: `q`

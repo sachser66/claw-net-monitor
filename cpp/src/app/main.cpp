@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cstdlib>
 #include <thread>
 
 #include <ncurses.h>
@@ -21,6 +22,12 @@ struct CachedText {
 };
 
 int main() {
+    int http_port = 8080;
+    if (const char* env_port = std::getenv("CLAW_MONITOR_PORT")) {
+        int parsed = std::atoi(env_port);
+        if (parsed > 0 && parsed < 65536) http_port = parsed;
+    }
+
     initscr();
     noecho();
     cbreak();
@@ -43,7 +50,7 @@ int main() {
         init_pair(9, COLOR_MAGENTA, -1);
     }
 
-    http_server_start(8080);
+    http_server_start(http_port);
 
     auto last = Clock::now();
     CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache;
