@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iomanip>
 #include <map>
+#include <set>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -24,10 +25,17 @@ struct InterfaceSample {
     std::string group = "Sonstiges";
 };
 
+struct OpenClawSession {
+    std::string agent;
+    std::string status;
+    std::string kind;
+    std::string key;
+};
+
 struct Snapshot {
     std::vector<InterfaceSample> interfaces;
     std::vector<std::pair<std::string, int>> conn_states;
-    std::vector<std::string> openclaw_sessions;
+    std::vector<OpenClawSession> openclaw_session_items;
     std::vector<std::string> docker_networks;
     std::vector<std::string> docker_containers;
     std::vector<std::string> openclaw_sockets;
@@ -191,38 +199,43 @@ std::string json_get_string_field(const std::string& block, const std::string& f
     return block.substr(start + 1, end - start - 1);
 }
 
-std::vector<std::string> extract_session_lines(const std::string& json) {
-    std::vector<std::string> lines;
+std::vector<OpenClawSession> extract_sessions(const std::string& json) {
+    std::vector<OpenClawSession> items;
     auto sessions_pos = json.find("\"sessions\"");
-    if (sessions_pos == std::string::npos) return lines;
+    if (sessions_pos == std::string::npos) return items;
 
     std::size_t pos = json.find("\"key\"", sessions_pos);
-    while (pos != std::string::npos && lines.size() < 12) {
+    while (pos != std::string::npos) {
         auto obj_start = json.rfind('{', pos);
         auto obj_end = json.find('}', pos);
         if (obj_start == std::string::npos || obj_end == std::string::npos) break;
         std::string block = json.substr(obj_start, obj_end - obj_start + 1);
 
-        std::string key = json_get_string_field(block, "key");
-        std::string agent = json_get_string_field(block, "agentId");
-        std::string status = json_get_string_field(block, "status");
-        std::string kind = json_get_string_field(block, "kind");
+        OpenClawSession s;
+        s.key = json_get_string_field(block, "key");
+        s.agent = json_get_string_field(block, "agentId");
+        s.status = json_get_string_field(block, "status");
+        s.kind = json_get_string_field(block, "kind");
 
-        if (agent.empty()) {
-            if (key.rfind("agent:", 0) == 0) {
-                auto first = key.find(':');
-                auto second = key.find(':', first + 1);
-                if (second != std::string::npos) agent = key.substr(first + 1, second - first - 1);
-            }
+        if (s.agent.empty() && s.key.rfind("agent:", 0) == 0) {
+            auto first = s.key.find(':');
+            auto second = s.key.find(':', first + 1);
+            if (second != std::string::npos) s.agent = s.key.substr(first + 1, second - first - 1);
         }
-        if (agent.empty()) agent = "?";
-        if (status.empty()) status = "?";
-        if (kind.empty()) kind = "?";
-        if (!key.empty()) lines.push_back(agent + " | " + status + " | " + kind + " | " + key);
+        if (s.agent.empty()) s.agent = "?";
+        if (s.status.empty()) s.status = "?";
+        if (s.kind.empty()) s.kind = "?";
+        if (!s.key.empty()) items.push_back(s);
 
         pos = json.find("\"key\"", obj_end + 1);
     }
-    return lines;
+
+    std::sort(items.begin(), items.end(), [](const auto& a, const auto& b) {
+        if (a.agent != b.agent) return a.agent < b.agent;
+        if (a.status != b.status) return a.status < b.status;
+        return a.key < b.key;
+    });
+    return items;
 }
 
 int parse_session_count(const std::string& out) {
@@ -386,7 +399,7 @@ int main() {
         snapshot.interfaces = std::move(interfaces);
         snapshot.conn_states = parse_ss_summary(ss_cache.text);
         snapshot.openclaw_session_count = parse_session_count(openclaw_cache.text);
-        snapshot.openclaw_sessions = extract_session_lines(openclaw_cache.text);
+        snapshot.openclaw_session_items = extract_sessions(openclaw_cache.text);
         snapshot.openclaw_sockets = parse_openclaw_sockets(ss_cache.text);
         snapshot.openclaw_socket_activity = has_openclaw_local_activity(snapshot.openclaw_sockets);
         snapshot.docker_networks = parse_lines(docker_net_cache.text, 6);
@@ -404,7 +417,7 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V10");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V11");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
@@ -443,13 +456,26 @@ int main() {
             }
         }
         if (row < LINES - 1) {
-            mvprintw(row++, 2, "%s", shorten("Sessions aller Agenten:", left_w - 6).c_str());
+            mvprintw(row++, 2, "%s", shorten("Sessions gruppiert nach Agent:", left_w - 6).c_str());
         }
-        if (snapshot.openclaw_sessions.empty()) {
+        if (snapshot.openclaw_session_items.empty()) {
             mvprintw(row, 2, "Keine Sessiondaten gefunden.");
         } else {
-            for (std::size_t i = 0; i < snapshot.openclaw_sessions.size() && row < LINES - 1; ++i) {
-                mvprintw(row++, 2, "%s", shorten(snapshot.openclaw_sessions[i], left_w - 6).c_str());
+            std::string current_agent;
+            for (std::size_t i = 0; i < snapshot.openclaw_session_items.size() && row < LINES - 1; ++i) {
+                const auto& s = snapshot.openclaw_session_items[i];
+                if (s.agent != current_agent) {
+                    current_agent = s.agent;
+                    mvprintw(row++, 2, "%s", shorten("[" + current_agent + "]", left_w - 6).c_str());
+                    if (row >= LINES - 1) break;
+                }
+                std::string key_short = s.key;
+                if (key_short.rfind("agent:", 0) == 0) {
+                    auto p = key_short.find(':', 6);
+                    if (p != std::string::npos && p + 1 < key_short.size()) key_short = key_short.substr(p + 1);
+                }
+                std::string line = "  - " + s.status + " | " + s.kind + " | " + key_short;
+                mvprintw(row++, 2, "%s", shorten(line, left_w - 6).c_str());
             }
         }
 
