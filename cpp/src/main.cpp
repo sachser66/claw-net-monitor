@@ -32,6 +32,8 @@ struct OpenClawSession {
     std::string key;
     std::string display;
     std::string model;
+    std::string last_channel;
+    std::string provider;
     long long updated_at = 0;
 };
 
@@ -213,9 +215,12 @@ long long json_get_number_field(const std::string& block, const std::string& fie
     return value;
 }
 
-std::string infer_session_channel(const std::string& key, const std::string& display) {
+std::string infer_session_channel(const OpenClawSession& s) {
     auto has = [&](const std::string& needle) {
-        return key.find(needle) != std::string::npos || display.find(needle) != std::string::npos;
+        return s.key.find(needle) != std::string::npos ||
+               s.display.find(needle) != std::string::npos ||
+               s.last_channel.find(needle) != std::string::npos ||
+               s.provider.find(needle) != std::string::npos;
     };
     if (has("telegram")) return "telegram";
     if (has("whatsapp")) return "whatsapp";
@@ -223,6 +228,7 @@ std::string infer_session_channel(const std::string& key, const std::string& dis
     if (has("signal")) return "signal";
     if (has("webchat")) return "webchat";
     if (has("tui")) return "tui";
+    if (has("web")) return "webchat";
     return "other";
 }
 
@@ -246,6 +252,8 @@ std::vector<OpenClawSession> extract_sessions(const std::string& json) {
         s.kind = json_get_string_field(block, "kind");
         s.display = json_get_string_field(block, "displayName");
         s.model = json_get_string_field(block, "model");
+        s.last_channel = json_get_string_field(block, "lastChannel");
+        s.provider = json_get_string_field(block, "provider");
         s.updated_at = json_get_number_field(block, "updatedAt");
 
         if (s.agent.empty() && s.key.rfind("agent:", 0) == 0) {
@@ -475,7 +483,7 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V14");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V15");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
@@ -546,7 +554,7 @@ int main() {
                 attron(COLOR_PAIR(color_for_kind(s.kind)));
                 mvprintw(row, 19, "%s", shorten(s.kind, 10).c_str());
                 attroff(COLOR_PAIR(color_for_kind(s.kind)));
-                std::string channel = infer_session_channel(s.key, s.display);
+                std::string channel = infer_session_channel(s);
                 mvprintw(row, 29, " | ");
                 attron(COLOR_PAIR(color_for_channel(channel)) | A_BOLD);
                 mvprintw(row, 32, "%s", shorten(channel, 9).c_str());
