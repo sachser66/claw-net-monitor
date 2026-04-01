@@ -2,16 +2,18 @@
 #include <array>
 #include <chrono>
 #include <cstdio>
-#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <map>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <ncurses.h>
+
+using Clock = std::chrono::steady_clock;
 
 struct InterfaceSample {
     std::string name;
@@ -27,7 +29,14 @@ struct Snapshot {
     std::vector<std::string> topology;
     std::vector<std::pair<std::string, int>> conn_states;
     std::vector<std::string> openclaw_sessions;
+    std::vector<std::string> docker_networks;
     int openclaw_session_count = 0;
+};
+
+struct CachedText {
+    std::string text;
+    Clock::time_point fetched_at{};
+    bool ready = false;
 };
 
 static std::map<std::string, std::pair<unsigned long long, unsigned long long>> g_prev;
@@ -92,9 +101,8 @@ std::vector<InterfaceSample> read_interfaces(double dt_seconds) {
     return items;
 }
 
-std::vector<std::pair<std::string, int>> read_ss_summary() {
+std::vector<std::pair<std::string, int>> parse_ss_summary(const std::string& out) {
     std::map<std::string, int> counts;
-    std::string out = exec_read("ss -tunap 2>/dev/null");
     std::istringstream iss(out);
     std::string line;
     bool first = true;
@@ -113,20 +121,22 @@ std::vector<std::pair<std::string, int>> read_ss_summary() {
     return items;
 }
 
-int count_json_key_occurrences(const std::string& text, const std::string& key) {
-    int count = 0;
-    std::size_t pos = 0;
-    while ((pos = text.find(key, pos)) != std::string::npos) {
-        ++count;
-        pos += key.size();
+std::vector<std::string> parse_docker_networks(const std::string& out) {
+    std::vector<std::string> lines;
+    std::istringstream iss(out);
+    std::string line;
+    while (std::getline(iss, line)) {
+        if (line.empty()) continue;
+        lines.push_back(line);
+        if (lines.size() >= 8) break;
     }
-    return count;
+    return lines;
 }
 
 std::vector<std::string> extract_session_lines(const std::string& json) {
     std::vector<std::string> lines;
     std::size_t pos = 0;
-    while (lines.size() < 12) {
+    while (lines.size() < 16) {
         auto key_pos = json.find("\"key\"", pos);
         if (key_pos == std::string::npos) break;
         auto key_start = json.find('"', key_pos + 5);
@@ -157,8 +167,7 @@ std::vector<std::string> extract_session_lines(const std::string& json) {
     return lines;
 }
 
-std::pair<int, std::vector<std::string>> read_openclaw_sessions() {
-    std::string out = exec_read("openclaw sessions --json 2>/dev/null");
+int parse_session_count(const std::string& out) {
     int count = 0;
     auto count_pos = out.find("\"count\"");
     if (count_pos != std::string::npos) {
@@ -168,12 +177,10 @@ std::pair<int, std::vector<std::string>> read_openclaw_sessions() {
             ss >> count;
         }
     }
-    auto lines = extract_session_lines(out);
-    if (count == 0) count = count_json_key_occurrences(out, "\"sessionId\"");
-    return {count, lines};
+    return count;
 }
 
-std::vector<std::string> build_topology(const std::vector<InterfaceSample>& interfaces, int session_count) {
+std::vector<std::string> build_topology(const std::vector<InterfaceSample>& interfaces, int session_count, const std::vector<std::string>& docker_networks) {
     std::vector<std::string> internet, docker, vpn, loopback, other;
     for (const auto& iface : interfaces) {
         if (iface.kind == "internet") internet.push_back(iface.name);
@@ -192,25 +199,17 @@ std::vector<std::string> build_topology(const std::vector<InterfaceSample>& inte
         return out.empty() ? std::string("-") : out;
     };
 
+    std::string docker_info = join3(docker);
+    if (!docker_networks.empty()) docker_info += " | nets=" + std::to_string(docker_networks.size());
+
     return {
         "Internet  -> " + join3(internet),
         "LAN/Other -> " + join3(other),
-        "Docker    -> " + join3(docker),
+        "Docker    -> " + docker_info,
         "VPN       -> " + join3(vpn),
         "Loopback  -> " + join3(loopback),
         "OpenClaw  -> sessions=" + std::to_string(session_count),
     };
-}
-
-Snapshot collect(double dt_seconds) {
-    Snapshot s;
-    s.interfaces = read_interfaces(dt_seconds);
-    s.conn_states = read_ss_summary();
-    auto [session_count, sessions] = read_openclaw_sessions();
-    s.openclaw_session_count = session_count;
-    s.openclaw_sessions = std::move(sessions);
-    s.topology = build_topology(s.interfaces, s.openclaw_session_count);
-    return s;
 }
 
 std::string fmt_rate(double value) {
@@ -267,20 +266,46 @@ int main() {
         init_pair(2, COLOR_GREEN, -1);
         init_pair(3, COLOR_YELLOW, -1);
         init_pair(4, COLOR_MAGENTA, -1);
+        init_pair(5, COLOR_BLUE, -1);
     }
 
-    auto last = std::chrono::steady_clock::now();
+    auto last = Clock::now();
     int tick = 0;
+    CachedText ss_cache, openclaw_cache, docker_cache;
 
     while (true) {
         int ch = getch();
         if (ch == 'q' || ch == 'Q') break;
 
-        auto now = std::chrono::steady_clock::now();
+        auto now = Clock::now();
         double dt = std::chrono::duration<double>(now - last).count();
         last = now;
 
-        auto snapshot = collect(dt);
+        auto interfaces = read_interfaces(dt);
+        if (!ss_cache.ready || now - ss_cache.fetched_at > std::chrono::seconds(3)) {
+            ss_cache.text = exec_read("ss -tunap 2>/dev/null");
+            ss_cache.fetched_at = now;
+            ss_cache.ready = true;
+        }
+        if (!openclaw_cache.ready || now - openclaw_cache.fetched_at > std::chrono::seconds(5)) {
+            openclaw_cache.text = exec_read("openclaw sessions --json 2>/dev/null");
+            openclaw_cache.fetched_at = now;
+            openclaw_cache.ready = true;
+        }
+        if (!docker_cache.ready || now - docker_cache.fetched_at > std::chrono::seconds(10)) {
+            docker_cache.text = exec_read("docker network ls --format '{{.Name}}  {{.Driver}}  {{.Scope}}' 2>/dev/null");
+            docker_cache.fetched_at = now;
+            docker_cache.ready = true;
+        }
+
+        Snapshot snapshot;
+        snapshot.interfaces = std::move(interfaces);
+        snapshot.conn_states = parse_ss_summary(ss_cache.text);
+        snapshot.openclaw_session_count = parse_session_count(openclaw_cache.text);
+        snapshot.openclaw_sessions = extract_session_lines(openclaw_cache.text);
+        snapshot.docker_networks = parse_docker_networks(docker_cache.text);
+        snapshot.topology = build_topology(snapshot.interfaces, snapshot.openclaw_session_count, snapshot.docker_networks);
+
         double max_rate = 0.0;
         for (const auto& iface : snapshot.interfaces) {
             max_rate = std::max(max_rate, iface.rx_rate + iface.tx_rate);
@@ -288,15 +313,16 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ v2");
+        mvprintw(0, 2, "claw-net-monitor C++ v3");
         attroff(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, COLS - 10, "q quit");
+        mvprintw(0, COLS - 18, "auto-build mode");
 
         int left_w = COLS / 2;
         box(2, 1, 12, left_w - 2, "INTERFACES", 1);
         box(14, 1, LINES - 15, left_w - 2, "OPENCLAW", 4);
         box(2, left_w, 9, COLS - left_w - 1, "TOPOLOGY", 2);
         box(11, left_w, 8, COLS - left_w - 1, "CONNECTIONS", 3);
+        box(19, left_w, LINES - 20, COLS - left_w - 1, "DOCKER", 5);
 
         int row = 3;
         for (std::size_t i = 0; i < snapshot.interfaces.size() && row < 12; ++i) {
@@ -309,7 +335,7 @@ int main() {
 
         row = 3;
         for (std::size_t i = 0; i < snapshot.topology.size() && row < 10; ++i) {
-            std::string prefix = (tick + static_cast<int>(i)) % 2 == 0 ? ">" : "-";
+            std::string prefix = ((tick + static_cast<int>(i)) % 3 == 0) ? ">" : ((tick + static_cast<int>(i)) % 3 == 1 ? ">>" : "-");
             mvprintw(row++, left_w + 2, "%s %s", prefix.c_str(), snapshot.topology[i].c_str());
         }
 
@@ -324,9 +350,18 @@ int main() {
             mvprintw(row++, 2, " %s", snapshot.openclaw_sessions[i].c_str());
         }
 
+        row = 20;
+        if (snapshot.docker_networks.empty()) {
+            mvprintw(row, left_w + 2, " docker networks: none / no access");
+        } else {
+            for (std::size_t i = 0; i < snapshot.docker_networks.size() && row < LINES - 1; ++i) {
+                mvprintw(row++, left_w + 2, " %s", snapshot.docker_networks[i].c_str());
+            }
+        }
+
         refresh();
         tick++;
-        std::this_thread::sleep_for(std::chrono::milliseconds(700));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     endwin();
