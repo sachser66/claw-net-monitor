@@ -170,28 +170,49 @@ std::vector<std::string> parse_lines(const std::string& out, std::size_t limit) 
     return lines;
 }
 
+std::string json_get_string_field(const std::string& block, const std::string& field) {
+    std::string needle = "\"" + field + "\"";
+    auto pos = block.find(needle);
+    if (pos == std::string::npos) return "";
+    auto colon = block.find(':', pos);
+    if (colon == std::string::npos) return "";
+    auto start = block.find('"', colon + 1);
+    if (start == std::string::npos) return "";
+    auto end = block.find('"', start + 1);
+    if (end == std::string::npos) return "";
+    return block.substr(start + 1, end - start - 1);
+}
+
 std::vector<std::string> extract_session_lines(const std::string& json) {
     std::vector<std::string> lines;
-    std::size_t pos = 0;
-    while (lines.size() < 10) {
-        auto key_pos = json.find("\"key\"", pos);
-        if (key_pos == std::string::npos) break;
-        auto key_start = json.find('"', key_pos + 5);
-        if (key_start == std::string::npos) break;
-        auto key_end = json.find('"', key_start + 1);
-        if (key_end == std::string::npos) break;
-        std::string key = json.substr(key_start + 1, key_end - key_start - 1);
+    auto sessions_pos = json.find("\"sessions\"");
+    if (sessions_pos == std::string::npos) return lines;
 
-        auto agent_pos = json.rfind("\"agentId\"", key_pos);
-        std::string agent = "?";
-        if (agent_pos != std::string::npos) {
-            auto s = json.find('"', agent_pos + 9);
-            auto e = s == std::string::npos ? std::string::npos : json.find('"', s + 1);
-            if (s != std::string::npos && e != std::string::npos) agent = json.substr(s + 1, e - s - 1);
+    std::size_t pos = json.find("\"key\"", sessions_pos);
+    while (pos != std::string::npos && lines.size() < 12) {
+        auto obj_start = json.rfind('{', pos);
+        auto obj_end = json.find('}', pos);
+        if (obj_start == std::string::npos || obj_end == std::string::npos) break;
+        std::string block = json.substr(obj_start, obj_end - obj_start + 1);
+
+        std::string key = json_get_string_field(block, "key");
+        std::string agent = json_get_string_field(block, "agentId");
+        std::string status = json_get_string_field(block, "status");
+        std::string kind = json_get_string_field(block, "kind");
+
+        if (agent.empty()) {
+            if (key.rfind("agent:", 0) == 0) {
+                auto first = key.find(':');
+                auto second = key.find(':', first + 1);
+                if (second != std::string::npos) agent = key.substr(first + 1, second - first - 1);
+            }
         }
+        if (agent.empty()) agent = "?";
+        if (status.empty()) status = "?";
+        if (kind.empty()) kind = "?";
+        if (!key.empty()) lines.push_back(agent + " | " + status + " | " + kind + " | " + key);
 
-        lines.push_back(agent + "  " + key);
-        pos = key_end + 1;
+        pos = json.find("\"key\"", obj_end + 1);
     }
     return lines;
 }
@@ -204,7 +225,16 @@ int parse_session_count(const std::string& out) {
         if (colon != std::string::npos) {
             std::stringstream ss(out.substr(colon + 1));
             ss >> count;
+            if (count > 0) return count;
         }
+    }
+
+    auto sessions_pos = out.find("\"sessions\"");
+    if (sessions_pos == std::string::npos) return 0;
+    std::size_t pos = out.find("\"key\"", sessions_pos);
+    while (pos != std::string::npos) {
+        count++;
+        pos = out.find("\"key\"", pos + 1);
     }
     return count;
 }
