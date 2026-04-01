@@ -328,7 +328,7 @@ int main() {
             ss_cache.ready = true;
         }
         if (!openclaw_cache.ready || now - openclaw_cache.fetched_at > std::chrono::seconds(5)) {
-            openclaw_cache.text = exec_read("openclaw sessions --json 2>/dev/null");
+            openclaw_cache.text = exec_read("python3 -c \"import json,subprocess; data=json.loads(subprocess.check_output([\'openclaw\',\'sessions\',\'--json\']).decode()); print(json.dumps(data))\" 2>/dev/null");
             openclaw_cache.fetched_at = now;
             openclaw_cache.ready = true;
         }
