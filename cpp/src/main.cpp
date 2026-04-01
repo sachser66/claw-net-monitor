@@ -491,7 +491,7 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V17");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V18");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
@@ -531,6 +531,11 @@ int main() {
         }
         if (row < LINES - 1) {
             mvprintw(row++, 2, "%s", shorten("Sessions gruppiert nach Agent:", left_w - 6).c_str());
+        }
+        if (row < LINES - 1) {
+            attron(A_BOLD | COLOR_PAIR(1));
+            mvprintw(row++, 2, "%s", shorten("      STATUS     | TYP        | KANAL     | SESSION            | MODELL", left_w - 6).c_str());
+            attroff(A_BOLD | COLOR_PAIR(1));
         }
         if (snapshot.openclaw_session_items.empty()) {
             mvprintw(row, 2, "Keine Sessiondaten gefunden.");
