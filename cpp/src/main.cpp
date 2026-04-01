@@ -31,6 +31,7 @@ struct OpenClawSession {
     std::string kind;
     std::string key;
     std::string display;
+    std::string model;
     long long updated_at = 0;
 };
 
@@ -213,10 +214,15 @@ long long json_get_number_field(const std::string& block, const std::string& fie
 }
 
 std::string infer_session_channel(const std::string& key, const std::string& display) {
-    if (key.find("telegram") != std::string::npos) return "telegram";
-    if (key.find("tui") != std::string::npos) return "tui";
-    if (display.find("telegram") != std::string::npos) return "telegram";
-    if (display.find("tui") != std::string::npos) return "tui";
+    auto has = [&](const std::string& needle) {
+        return key.find(needle) != std::string::npos || display.find(needle) != std::string::npos;
+    };
+    if (has("telegram")) return "telegram";
+    if (has("whatsapp")) return "whatsapp";
+    if (has("discord")) return "discord";
+    if (has("signal")) return "signal";
+    if (has("webchat")) return "webchat";
+    if (has("tui")) return "tui";
     return "other";
 }
 
@@ -239,6 +245,7 @@ std::vector<OpenClawSession> extract_sessions(const std::string& json) {
         s.status = json_get_string_field(block, "status");
         s.kind = json_get_string_field(block, "kind");
         s.display = json_get_string_field(block, "displayName");
+        s.model = json_get_string_field(block, "model");
         s.updated_at = json_get_number_field(block, "updatedAt");
 
         if (s.agent.empty() && s.key.rfind("agent:", 0) == 0) {
@@ -363,6 +370,10 @@ int color_for_kind(const std::string& kind) {
 int color_for_channel(const std::string& channel) {
     if (channel == "tui") return 6;
     if (channel == "telegram") return 3;
+    if (channel == "whatsapp") return 6;
+    if (channel == "discord") return 4;
+    if (channel == "signal") return 8;
+    if (channel == "webchat") return 5;
     return 1;
 }
 
@@ -464,7 +475,7 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V13");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V14");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
@@ -538,9 +549,11 @@ int main() {
                 std::string channel = infer_session_channel(s.key, s.display);
                 mvprintw(row, 29, " | ");
                 attron(COLOR_PAIR(color_for_channel(channel)) | A_BOLD);
-                mvprintw(row, 32, "%s", shorten(channel, 8).c_str());
+                mvprintw(row, 32, "%s", shorten(channel, 9).c_str());
                 attroff(COLOR_PAIR(color_for_channel(channel)) | A_BOLD);
-                mvprintw(row, 40, " | %s", shorten(key_short, left_w - 46).c_str());
+                std::string model_short = s.model.empty() ? "-" : s.model;
+                mvprintw(row, 42, " | %s", shorten(key_short, 18).c_str());
+                mvprintw(row, 62, " | %s", shorten(model_short, left_w - 68).c_str());
                 row++;
             }
         }
