@@ -229,7 +229,7 @@ std::string infer_session_channel(const OpenClawSession& s) {
     if (has("webchat")) return "webchat";
     if (has("tui")) return "tui";
     if (has("web")) return "webchat";
-    return "other";
+    return "tui";
 }
 
 
@@ -491,7 +491,7 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V16");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V17");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
