@@ -30,7 +30,9 @@ struct Snapshot {
     std::vector<std::string> openclaw_sessions;
     std::vector<std::string> docker_networks;
     std::vector<std::string> docker_containers;
+    std::vector<std::string> openclaw_sockets;
     int openclaw_session_count = 0;
+    bool openclaw_socket_activity = false;
 };
 
 struct CachedText {
@@ -127,6 +129,33 @@ std::vector<std::pair<std::string, int>> parse_ss_summary(const std::string& out
     std::vector<std::pair<std::string, int>> items(counts.begin(), counts.end());
     std::sort(items.begin(), items.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
     return items;
+}
+
+std::vector<std::string> parse_openclaw_sockets(const std::string& out) {
+    std::vector<std::string> lines;
+    std::istringstream iss(out);
+    std::string line;
+    bool first = true;
+    while (std::getline(iss, line)) {
+        if (first) {
+            first = false;
+            continue;
+        }
+        if (line.find("openclaw") == std::string::npos) continue;
+        lines.push_back(line);
+        if (lines.size() >= 6) break;
+    }
+    return lines;
+}
+
+bool has_openclaw_local_activity(const std::vector<std::string>& socket_lines) {
+    for (const auto& line : socket_lines) {
+        if ((line.find("127.0.0.1") != std::string::npos || line.find("[::1]") != std::string::npos || line.find("localhost") != std::string::npos) &&
+            (line.find("ESTAB") != std::string::npos || line.find("LISTEN") != std::string::npos || line.find("UNCONN") != std::string::npos)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 std::vector<std::string> parse_lines(const std::string& out, std::size_t limit) {
@@ -319,6 +348,8 @@ int main() {
         snapshot.conn_states = parse_ss_summary(ss_cache.text);
         snapshot.openclaw_session_count = parse_session_count(openclaw_cache.text);
         snapshot.openclaw_sessions = extract_session_lines(openclaw_cache.text);
+        snapshot.openclaw_sockets = parse_openclaw_sockets(ss_cache.text);
+        snapshot.openclaw_socket_activity = has_openclaw_local_activity(snapshot.openclaw_sockets);
         snapshot.docker_networks = parse_lines(docker_net_cache.text, 6);
         snapshot.docker_containers = parse_lines(docker_ps_cache.text, 6);
         auto groups = build_group_stats(snapshot.interfaces);
@@ -330,6 +361,7 @@ int main() {
         double internet_activity = internet ? internet->total() : 0.0;
         double docker_activity = docker ? docker->total() : 0.0;
         double localhost_activity = localhost ? localhost->total() : 0.0;
+        double openclaw_activity = snapshot.openclaw_socket_activity ? localhost_activity : 0.0;
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
@@ -359,12 +391,21 @@ int main() {
         row = 15;
         mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Internet", "Host", tick, 12, internet_activity, internet_activity > 1.0 ? "gemessen via Internet/LAN-Ifaces" : "kein Aktivitaetswert"), left_w - 6).c_str());
         mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Host", "Docker", tick + 4, 10, docker_activity, docker_activity > 1.0 ? "gemessen via docker/br-Ifaces" : "kein Aktivitaetswert"), left_w - 6).c_str());
-        mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Localhost", "OpenClaw", tick + 2, 8, localhost_activity, localhost_activity > 1.0 ? "gemessen via lo" : "kein Aktivitaetswert"), left_w - 6).c_str());
+        mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Localhost", "OpenClaw", tick + 2, 8, openclaw_activity, snapshot.openclaw_socket_activity ? "gemessen: openclaw Socket auf localhost" : "kein belegter openclaw localhost-Socket"), left_w - 6).c_str());
 
         mvprintw(21, 2, "%s", shorten("OpenClaw-Sessions auf diesem Host", left_w - 6).c_str());
         mvprintw(22, 2, "Sessions gesamt: %d", snapshot.openclaw_session_count);
-        mvprintw(23, 2, "%s", shorten("OpenClaw hier als Host-Service plausibel; Docker dafuer nicht belegt.", left_w - 6).c_str());
+        mvprintw(23, 2, "%s", shorten(snapshot.openclaw_socket_activity ? "Belegt: openclaw hat localhost-Socket(s) im ss-Output." : "Nicht belegt: kein eindeutiger openclaw localhost-Socket im ss-Output.", left_w - 6).c_str());
         row = 24;
+        if (!snapshot.openclaw_sockets.empty()) {
+            mvprintw(row++, 2, "%s", shorten("OpenClaw-Sockets:", left_w - 6).c_str());
+            for (std::size_t i = 0; i < snapshot.openclaw_sockets.size() && row < LINES - 1; ++i) {
+                mvprintw(row++, 2, "%s", shorten(snapshot.openclaw_sockets[i], left_w - 6).c_str());
+            }
+        }
+        if (row < LINES - 1) {
+            mvprintw(row++, 2, "%s", shorten("OpenClaw-Sessions:", left_w - 6).c_str());
+        }
         if (snapshot.openclaw_sessions.empty()) {
             mvprintw(row, 2, "Keine Sessiondaten gefunden.");
         } else {
