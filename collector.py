@@ -184,7 +184,7 @@ class Collector:
         if isinstance(sessions, dict):
             session_count = sessions.get('count')
             raw = sessions.get('sessions') or []
-            for item in raw[:8]:
+            for item in raw:
                 session_items.append({
                     'key': item.get('key', '?'),
                     'kind': item.get('kind', '?'),

@@ -91,9 +91,11 @@ def draw(stdscr: curses.window, snapshot: Snapshot | None, tick: int) -> bool:
     put(stdscr, row + 1, 0, 'OPENCLAW SESSIONS')
     srow = row + 2
     sessions = (snapshot.openclaw or {}).get('sessions') or []
-    for sess in sessions[: max(1, height - srow - 2)]:
+    put(stdscr, row + 1, 20, f'total={len(sessions)}')
+    visible = max(1, height - srow - 2)
+    for sess in sessions[:visible]:
         model = str(sess.get('model', '?')).split('/')[-1]
-        put(stdscr, srow, 0, f"{sess['agentId']:<6} {sess['kind']:<8} {model:<12} {sess['key']}")
+        put(stdscr, srow, 0, f"{sess['agentId']:<8} {sess['kind']:<8} {model:<12} {sess['key']}")
         srow += 1
         if srow >= height - 1:
             break
