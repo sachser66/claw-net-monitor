@@ -2,6 +2,7 @@
 #include <array>
 #include <chrono>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <map>
@@ -50,6 +51,14 @@ struct GroupStat {
 };
 
 static std::map<std::string, std::pair<unsigned long long, unsigned long long>> g_prev;
+
+std::string read_file_text(const std::string& path) {
+    std::ifstream file(path);
+    if (!file) return "";
+    std::ostringstream ss;
+    ss << file.rdbuf();
+    return ss.str();
+}
 
 std::string exec_read(const std::string& cmd) {
     std::array<char, 4096> buffer{};
@@ -239,6 +248,59 @@ int parse_session_count(const std::string& out) {
     return count;
 }
 
+std::string load_all_openclaw_sessions_json() {
+    namespace fs = std::filesystem;
+    const fs::path agents_root("/home/tr4/.openclaw/agents");
+    std::string merged = "{\"sessions\":[";
+    bool first = true;
+
+    if (!fs::exists(agents_root) || !fs::is_directory(agents_root)) {
+        return "{\"sessions\":[],\"count\":0}";
+    }
+
+    for (const auto& agent_entry : fs::directory_iterator(agents_root)) {
+        if (!agent_entry.is_directory()) continue;
+        fs::path sessions_file = agent_entry.path() / "sessions" / "sessions.json";
+        std::string content = read_file_text(sessions_file.string());
+        if (content.empty()) continue;
+
+        auto sessions_pos = content.find("\"sessions\"");
+        if (sessions_pos == std::string::npos) continue;
+        auto array_start = content.find('[', sessions_pos);
+        if (array_start == std::string::npos) continue;
+        auto array_end = content.rfind(']');
+        if (array_end == std::string::npos || array_end <= array_start) continue;
+
+        std::string array_body = content.substr(array_start + 1, array_end - array_start - 1);
+        std::size_t pos = 0;
+        while (true) {
+            auto obj_start = array_body.find('{', pos);
+            if (obj_start == std::string::npos) break;
+            int depth = 0;
+            std::size_t obj_end = obj_start;
+            for (; obj_end < array_body.size(); ++obj_end) {
+                if (array_body[obj_end] == '{') depth++;
+                else if (array_body[obj_end] == '}') {
+                    depth--;
+                    if (depth == 0) break;
+                }
+            }
+            if (obj_end >= array_body.size()) break;
+            std::string obj = array_body.substr(obj_start, obj_end - obj_start + 1);
+            if (!first) merged += ',';
+            merged += obj;
+            first = false;
+            pos = obj_end + 1;
+        }
+    }
+
+    int count = 0;
+    for (char c : merged) if (c == '{') count++;
+    if (count > 0) count -= 1;
+    merged += "],\"count\":" + std::to_string(std::max(0, count)) + "}";
+    return merged;
+}
+
 std::string fmt_rate(double value) {
     static const char* units[] = {"B/s", "KB/s", "MB/s", "GB/s"};
     int idx = 0;
@@ -358,7 +420,7 @@ int main() {
             ss_cache.ready = true;
         }
         if (!openclaw_cache.ready || now - openclaw_cache.fetched_at > std::chrono::seconds(5)) {
-            openclaw_cache.text = exec_read("python3 -c \"import json,subprocess; data=json.loads(subprocess.check_output([\'openclaw\',\'sessions\',\'--json\']).decode()); print(json.dumps(data))\" 2>/dev/null");
+            openclaw_cache.text = load_all_openclaw_sessions_json();
             openclaw_cache.fetched_at = now;
             openclaw_cache.ready = true;
         }
@@ -395,7 +457,7 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V9");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V10");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
