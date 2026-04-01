@@ -29,6 +29,7 @@ struct Snapshot {
     std::vector<std::pair<std::string, int>> conn_states;
     std::vector<std::string> openclaw_sessions;
     std::vector<std::string> docker_networks;
+    std::vector<std::string> docker_containers;
     int openclaw_session_count = 0;
 };
 
@@ -128,14 +129,14 @@ std::vector<std::pair<std::string, int>> parse_ss_summary(const std::string& out
     return items;
 }
 
-std::vector<std::string> parse_docker_networks(const std::string& out) {
+std::vector<std::string> parse_lines(const std::string& out, std::size_t limit) {
     std::vector<std::string> lines;
     std::istringstream iss(out);
     std::string line;
     while (std::getline(iss, line)) {
         if (line.empty()) continue;
         lines.push_back(line);
-        if (lines.size() >= 6) break;
+        if (lines.size() >= limit) break;
     }
     return lines;
 }
@@ -270,7 +271,7 @@ int main() {
     }
 
     auto last = Clock::now();
-    CachedText ss_cache, openclaw_cache, docker_cache;
+    CachedText ss_cache, openclaw_cache, docker_net_cache, docker_ps_cache;
     int tick = 0;
 
     while (true) {
@@ -292,10 +293,15 @@ int main() {
             openclaw_cache.fetched_at = now;
             openclaw_cache.ready = true;
         }
-        if (!docker_cache.ready || now - docker_cache.fetched_at > std::chrono::seconds(10)) {
-            docker_cache.text = exec_read("docker network ls --format '{{.Name}}  {{.Driver}}  {{.Scope}}' 2>/dev/null");
-            docker_cache.fetched_at = now;
-            docker_cache.ready = true;
+        if (!docker_net_cache.ready || now - docker_net_cache.fetched_at > std::chrono::seconds(10)) {
+            docker_net_cache.text = exec_read("docker network ls --format '{{.Name}}  {{.Driver}}  {{.Scope}}' 2>/dev/null");
+            docker_net_cache.fetched_at = now;
+            docker_net_cache.ready = true;
+        }
+        if (!docker_ps_cache.ready || now - docker_ps_cache.fetched_at > std::chrono::seconds(5)) {
+            docker_ps_cache.text = exec_read("docker ps --format '{{.Names}}  {{.Status}}' 2>/dev/null");
+            docker_ps_cache.fetched_at = now;
+            docker_ps_cache.ready = true;
         }
 
         Snapshot snapshot;
@@ -303,12 +309,13 @@ int main() {
         snapshot.conn_states = parse_ss_summary(ss_cache.text);
         snapshot.openclaw_session_count = parse_session_count(openclaw_cache.text);
         snapshot.openclaw_sessions = extract_session_lines(openclaw_cache.text);
-        snapshot.docker_networks = parse_docker_networks(docker_cache.text);
+        snapshot.docker_networks = parse_lines(docker_net_cache.text, 6);
+        snapshot.docker_containers = parse_lines(docker_ps_cache.text, 6);
         auto groups = build_group_stats(snapshot.interfaces);
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V6");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V7");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
@@ -334,12 +341,13 @@ int main() {
         row = 14;
         mvprintw(row++, 2, "%s", shorten(make_flow_line("Internet", "LAN", tick, 12), left_w - 6).c_str());
         mvprintw(row++, 2, "%s", shorten(make_flow_line("LAN", "Docker", tick + 4, 10), left_w - 6).c_str());
-        mvprintw(row++, 2, "%s", shorten(make_flow_line("Docker", "OpenClaw", tick + 8, 8), left_w - 6).c_str());
+        mvprintw(row++, 2, "%s", shorten(make_flow_line("Docker", "OpenClaw?", tick + 8, 8), left_w - 6).c_str());
         mvprintw(row++, 2, "%s", shorten(make_flow_line("Localhost", "OpenClaw", tick + 2, 8), left_w - 6).c_str());
 
-        mvprintw(20, 2, "%s", shorten("OpenClaw-Sessions auf diesem Host", left_w - 6).c_str());
+        mvprintw(20, 2, "%s", shorten("OpenClaw-Sessions auf diesem Host (nicht automatisch Docker)", left_w - 6).c_str());
         mvprintw(21, 2, "Sessions gesamt: %d", snapshot.openclaw_session_count);
-        row = 22;
+        mvprintw(22, 2, "%s", shorten("Hinweis: OpenClaw kann als normaler Host-Service laufen.", left_w - 6).c_str());
+        row = 23;
         if (snapshot.openclaw_sessions.empty()) {
             mvprintw(row, 2, "Keine Sessiondaten gefunden.");
         } else {
@@ -356,13 +364,22 @@ int main() {
         }
         mvprintw(10, left_w + 2, "%s", shorten("Noch grobe Host-Sicht, noch keine echte Paketfluss-Karte.", right_w - 4).c_str());
 
-        mvprintw(13, left_w + 2, "%s", shorten("Vorhandene Docker-Netzwerke auf dem Host", right_w - 4).c_str());
+        mvprintw(13, left_w + 2, "%s", shorten("Docker ist auf dem Host vorhanden, auch wenn OpenClaw nicht darin laeuft.", right_w - 4).c_str());
+        mvprintw(14, left_w + 2, "%s", shorten("Docker-Netzwerke:", right_w - 4).c_str());
         row = 15;
         if (snapshot.docker_networks.empty()) {
-            mvprintw(row, left_w + 2, "Keine Docker-Netze oder kein Zugriff.");
+            mvprintw(row++, left_w + 2, "Keine Docker-Netze oder kein Zugriff.");
         } else {
-            for (std::size_t i = 0; i < snapshot.docker_networks.size() && row < LINES - 1; ++i) {
+            for (std::size_t i = 0; i < snapshot.docker_networks.size() && row < 19; ++i) {
                 mvprintw(row++, left_w + 2, "%s", shorten(snapshot.docker_networks[i], right_w - 4).c_str());
+            }
+        }
+        mvprintw(row++, left_w + 2, "%s", shorten("Laufende Container:", right_w - 4).c_str());
+        if (snapshot.docker_containers.empty()) {
+            mvprintw(row, left_w + 2, "Keine laufenden Container oder kein Zugriff.");
+        } else {
+            for (std::size_t i = 0; i < snapshot.docker_containers.size() && row < LINES - 1; ++i) {
+                mvprintw(row++, left_w + 2, "%s", shorten(snapshot.docker_containers[i], right_w - 4).c_str());
             }
         }
 
