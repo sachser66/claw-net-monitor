@@ -14,7 +14,7 @@ namespace {
 std::atomic<bool> g_running{false};
 std::thread g_thread;
 std::mutex g_mutex;
-std::string g_json = "{\"status\":\"starting\"}";
+std::string g_json = "";
 int g_server_fd = -1;
 
 std::string make_response(const std::string& body, const std::string& content_type = "application/json") {
@@ -171,9 +171,9 @@ void server_loop(int port) {
 
         std::string body;
         std::string resp;
-        if (req.rfind("GET /api/state", 0) != std::string::npos) {
+        if (req.find("GET /api/state ") != std::string::npos || req.find("GET /api/state?") != std::string::npos) {
             std::lock_guard<std::mutex> lock(g_mutex);
-            body = g_json;
+            body = g_json.empty() ? "{\"ready\":false}" : g_json;
             resp = make_response(body, "application/json");
         } else {
             body = make_html();

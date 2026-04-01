@@ -66,8 +66,8 @@ std::vector<std::pair<std::string, int>> parse_ss_summary(const std::string& out
             continue;
         }
         std::istringstream ls(line);
-        std::string state;
-        ls >> state;
+        std::string netid, state;
+        ls >> netid >> state;
         if (!state.empty()) counts[state]++;
     }
     std::vector<std::pair<std::string, int>> items(counts.begin(), counts.end());

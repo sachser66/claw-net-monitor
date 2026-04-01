@@ -76,7 +76,7 @@ int main() {
             openclaw_cache.ready = true;
         }
         if (!gateway_cache.ready || now - gateway_cache.fetched_at > std::chrono::seconds(10)) {
-            gateway_cache.text = exec_read("openclaw gateway status --json 2>/dev/null");
+            gateway_cache.text = exec_read("openclaw gateway status --json 2>/dev/null || true");
             gateway_cache.fetched_at = now;
             gateway_cache.ready = true;
         }
