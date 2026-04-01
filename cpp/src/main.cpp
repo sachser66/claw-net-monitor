@@ -315,19 +315,19 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V7");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V8");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
         int left_w = COLS / 2;
         int right_w = COLS - left_w - 1;
         box(2, 1, 10, left_w - 2, "WO IST TRAFFIC?", 1);
-        box(12, 1, 7, left_w - 2, "PAKETFLUSS", 2);
-        box(19, 1, LINES - 20, left_w - 2, "OPENCLAW", 4);
+        box(12, 1, 8, left_w - 2, "PAKETFLUSS (NUR PLAUSIBEL)", 2);
+        box(20, 1, LINES - 21, left_w - 2, "OPENCLAW", 4);
         box(2, left_w, 10, right_w, "VERBINDUNGEN", 3);
         box(12, left_w, LINES - 13, right_w, "DOCKER", 5);
 
-        mvprintw(3, 2, "%s", shorten("Kurzsicht: welche Netzgruppen gerade am meisten bewegen", left_w - 6).c_str());
+        mvprintw(3, 2, "%s", shorten("Gemessene Netzgruppen nach Aktivitaet", left_w - 6).c_str());
         int row = 4;
         for (std::size_t i = 0; i < groups.size() && row < 10; ++i) {
             std::string prefix = (i == 0 && groups[i].total() > 0.0) ? "* " : "  ";
@@ -337,17 +337,16 @@ int main() {
             mvprintw(10, 2, "%s", shorten("Staerkste Gruppe gerade: " + groups.front().name, left_w - 6).c_str());
         }
 
-        mvprintw(13, 2, "%s", shorten("Animierte, vereinfachte Paketwege zwischen Bereichen", left_w - 6).c_str());
-        row = 14;
-        mvprintw(row++, 2, "%s", shorten(make_flow_line("Internet", "LAN", tick, 12), left_w - 6).c_str());
-        mvprintw(row++, 2, "%s", shorten(make_flow_line("LAN", "Docker", tick + 4, 10), left_w - 6).c_str());
-        mvprintw(row++, 2, "%s", shorten(make_flow_line("Docker", "OpenClaw?", tick + 8, 8), left_w - 6).c_str());
+        mvprintw(13, 2, "%s", shorten("Nur plausible Host-Pfade, keine Vermutungen ueber Docker->OpenClaw", left_w - 6).c_str());
+        row = 15;
+        mvprintw(row++, 2, "%s", shorten(make_flow_line("Internet", "Host", tick, 12), left_w - 6).c_str());
+        mvprintw(row++, 2, "%s", shorten(make_flow_line("Host", "Docker", tick + 4, 10), left_w - 6).c_str());
         mvprintw(row++, 2, "%s", shorten(make_flow_line("Localhost", "OpenClaw", tick + 2, 8), left_w - 6).c_str());
 
-        mvprintw(20, 2, "%s", shorten("OpenClaw-Sessions auf diesem Host (nicht automatisch Docker)", left_w - 6).c_str());
-        mvprintw(21, 2, "Sessions gesamt: %d", snapshot.openclaw_session_count);
-        mvprintw(22, 2, "%s", shorten("Hinweis: OpenClaw kann als normaler Host-Service laufen.", left_w - 6).c_str());
-        row = 23;
+        mvprintw(21, 2, "%s", shorten("OpenClaw-Sessions auf diesem Host", left_w - 6).c_str());
+        mvprintw(22, 2, "Sessions gesamt: %d", snapshot.openclaw_session_count);
+        mvprintw(23, 2, "%s", shorten("Gemessen: Sessions vorhanden. Nicht belegt: Betrieb in Docker.", left_w - 6).c_str());
+        row = 24;
         if (snapshot.openclaw_sessions.empty()) {
             mvprintw(row, 2, "Keine Sessiondaten gefunden.");
         } else {
@@ -362,9 +361,9 @@ int main() {
             std::string line = snapshot.conn_states[i].first + ": " + std::to_string(snapshot.conn_states[i].second);
             mvprintw(row++, left_w + 2, "%s", shorten(line, right_w - 4).c_str());
         }
-        mvprintw(10, left_w + 2, "%s", shorten("Noch grobe Host-Sicht, noch keine echte Paketfluss-Karte.", right_w - 4).c_str());
+        mvprintw(10, left_w + 2, "%s", shorten("Host-Sicht aus ss -tunap, keine Topologie-Aussage.", right_w - 4).c_str());
 
-        mvprintw(13, left_w + 2, "%s", shorten("Docker ist auf dem Host vorhanden, auch wenn OpenClaw nicht darin laeuft.", right_w - 4).c_str());
+        mvprintw(13, left_w + 2, "%s", shorten("Gemessen: Docker ist auf dem Host vorhanden.", right_w - 4).c_str());
         mvprintw(14, left_w + 2, "%s", shorten("Docker-Netzwerke:", right_w - 4).c_str());
         row = 15;
         if (snapshot.docker_networks.empty()) {
