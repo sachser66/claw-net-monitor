@@ -7,8 +7,10 @@
 #include "../collectors/network_collector.hpp"
 #include "../collectors/openclaw_collector.hpp"
 #include "../core/snapshot.hpp"
+#include "../core/state_json.hpp"
 #include "../renderers/terminal_renderer.hpp"
 #include "../util/exec.hpp"
+#include "../server/http_server.hpp"
 
 using Clock = std::chrono::steady_clock;
 
@@ -40,6 +42,8 @@ int main() {
         init_pair(8, COLOR_CYAN, -1);
         init_pair(9, COLOR_MAGENTA, -1);
     }
+
+    http_server_start(8080);
 
     auto last = Clock::now();
     CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache;
@@ -98,12 +102,14 @@ int main() {
         snapshot.docker_containers = parse_lines(docker_ps_cache.text, 6);
         auto groups = build_group_stats(snapshot.interfaces);
 
+        http_server_publish_json(snapshot_to_json(snapshot));
         render_terminal(snapshot, groups, tick);
         refresh();
         tick++;
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
+    http_server_stop();
     endwin();
     return 0;
 }

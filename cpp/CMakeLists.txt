@@ -13,6 +13,8 @@ add_executable(claw-net-monitor
   src/collectors/openclaw_collector.cpp
   src/collectors/docker_collector.cpp
   src/renderers/terminal_renderer.cpp
+  src/core/state_json.cpp
+  src/server/http_server.cpp
 )
 
 target_compile_options(claw-net-monitor PRIVATE -O2 -Wall -Wextra -pedantic)

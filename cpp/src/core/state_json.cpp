@@ -1,0 +1,109 @@
+#include "state_json.hpp"
+
+#include <sstream>
+
+namespace {
+std::string escape_json(const std::string& s) {
+    std::string out;
+    out.reserve(s.size() + 16);
+    for (char ch : s) {
+        switch (ch) {
+            case '\\': out += "\\\\"; break;
+            case '"': out += "\\\""; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default: out += ch; break;
+        }
+    }
+    return out;
+}
+}
+
+std::string snapshot_to_json(const Snapshot& snapshot) {
+    std::ostringstream out;
+    out << "{";
+    out << "\"openclaw\":{";
+    out << "\"session_count\":" << snapshot.openclaw_session_count << ",";
+    out << "\"socket_activity\":" << (snapshot.openclaw_socket_activity ? "true" : "false") << ",";
+
+    out << "\"gateway\":{";
+    out << "\"mode\":\"" << escape_json(snapshot.gateway.mode) << "\",";
+    out << "\"bind\":\"" << escape_json(snapshot.gateway.bind) << "\",";
+    out << "\"port\":\"" << escape_json(snapshot.gateway.port) << "\",";
+    out << "\"probe_url\":\"" << escape_json(snapshot.gateway.probe_url) << "\"},";
+
+    out << "\"agents\":[";
+    for (std::size_t i = 0; i < snapshot.openclaw_agents.size(); ++i) {
+        const auto& a = snapshot.openclaw_agents[i];
+        if (i) out << ',';
+        out << '{';
+        out << "\"id\":\"" << escape_json(a.id) << "\",";
+        out << "\"name\":\"" << escape_json(a.name) << "\",";
+        out << "\"emoji\":\"" << escape_json(a.emoji) << "\",";
+        out << "\"workspace\":\"" << escape_json(a.workspace) << "\",";
+        out << "\"model_primary\":\"" << escape_json(a.model_primary) << "\",";
+        out << "\"bound_accounts\":[";
+        for (std::size_t j = 0; j < a.bound_accounts.size(); ++j) {
+            if (j) out << ',';
+            out << '"' << escape_json(a.bound_accounts[j]) << '"';
+        }
+        out << "]}";
+    }
+    out << "],";
+
+    out << "\"sessions\":[";
+    for (std::size_t i = 0; i < snapshot.openclaw_session_items.size(); ++i) {
+        const auto& s = snapshot.openclaw_session_items[i];
+        if (i) out << ',';
+        out << '{';
+        out << "\"agent\":\"" << escape_json(s.agent) << "\",";
+        out << "\"status\":\"" << escape_json(s.status) << "\",";
+        out << "\"kind\":\"" << escape_json(s.kind) << "\",";
+        out << "\"key\":\"" << escape_json(s.key) << "\",";
+        out << "\"model\":\"" << escape_json(s.model) << "\",";
+        out << "\"model_provider\":\"" << escape_json(s.model_provider) << "\"";
+        out << '}';
+    }
+    out << "]},";
+
+    out << "\"network\":{";
+    out << "\"interfaces\":[";
+    for (std::size_t i = 0; i < snapshot.interfaces.size(); ++i) {
+        const auto& n = snapshot.interfaces[i];
+        if (i) out << ',';
+        out << '{';
+        out << "\"name\":\"" << escape_json(n.name) << "\",";
+        out << "\"group\":\"" << escape_json(n.group) << "\",";
+        out << "\"rx_rate\":" << n.rx_rate << ',';
+        out << "\"tx_rate\":" << n.tx_rate;
+        out << '}';
+    }
+    out << "],";
+    out << "\"conn_states\":[";
+    for (std::size_t i = 0; i < snapshot.conn_states.size(); ++i) {
+        if (i) out << ',';
+        out << '{';
+        out << "\"state\":\"" << escape_json(snapshot.conn_states[i].first) << "\",";
+        out << "\"count\":" << snapshot.conn_states[i].second;
+        out << '}';
+    }
+    out << "]},";
+
+    out << "\"docker\":{";
+    out << "\"networks\":[";
+    for (std::size_t i = 0; i < snapshot.docker_networks.size(); ++i) {
+        if (i) out << ',';
+        out << '"' << escape_json(snapshot.docker_networks[i]) << '"';
+    }
+    out << "],";
+    out << "\"containers\":[";
+    for (std::size_t i = 0; i < snapshot.docker_containers.size(); ++i) {
+        if (i) out << ',';
+        out << '"' << escape_json(snapshot.docker_containers[i]) << '"';
+    }
+    out << "]}";
+
+    out << '}';
+    return out.str();
+}
