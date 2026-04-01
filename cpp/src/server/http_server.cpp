@@ -30,35 +30,116 @@ std::string make_html() {
     return R"HTML(<!doctype html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>claw-net-monitor</title>
 <style>
-body{font-family:system-ui,sans-serif;background:#0b1020;color:#e5e7eb;margin:0;padding:12px}
-.card{background:#121933;border:1px solid #26304d;border-radius:12px;padding:12px;margin:10px 0}
-.small{color:#9ca3af;font-size:12px}
-pre{white-space:pre-wrap;word-break:break-word}
+:root{
+  --bg:#0a0f1f;--panel:#121a30;--panel2:#18233f;--line:#2a3a63;--text:#e8edf7;--muted:#98a5c3;
+  --cyan:#67e8f9;--green:#4ade80;--yellow:#facc15;--pink:#f472b6;--blue:#60a5fa;
+}
+*{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#09101d,#0d1324 35%,#11182d);color:var(--text);font:14px/1.4 system-ui,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:14px 12px 32px}
+.h1{font-size:24px;font-weight:800;letter-spacing:.2px}.sub{color:var(--muted);margin-top:4px;margin-bottom:14px}
+.grid{display:grid;gap:12px}.hero{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.v{font-size:24px;font-weight:800;margin-top:4px}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#20304f;color:#d9e5ff;font-size:12px;margin:2px 6px 0 0}
+.list{display:grid;gap:8px;margin-top:8px}.row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border:1px solid #2a375b;border-radius:12px;background:rgba(10,16,31,.35)}
+.left{min-width:0}.title{font-weight:700}.meta{font-size:12px;color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.tag{font-size:11px;border-radius:999px;padding:3px 8px;background:#243253;color:#cfe0ff}.good{color:var(--green)}.warn{color:var(--yellow)}.pink{color:var(--pink)}.cyan{color:var(--cyan)}.blue{color:var(--blue)}
+.bar{height:8px;background:#1b2744;border-radius:999px;overflow:hidden;margin-top:6px}.fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:999px}
+.small{font-size:12px;color:var(--muted)}
+@media (max-width:700px){.hero,.stats{grid-template-columns:1fr}.wrap{padding:10px 10px 24px}.v{font-size:22px}}
 </style>
 </head>
 <body>
-<h2>claw-net-monitor</h2>
-<div id="app" class="small">loading…</div>
+<div class="wrap">
+  <div class="h1">claw-net-monitor</div>
+  <div class="sub">Terminal + iPhone auf derselben Live-Datenbasis</div>
+  <div id="app" class="small">loading…</div>
+</div>
 <script>
+function rate(v){
+  let n=Number(v||0),u=['B/s','KB/s','MB/s','GB/s'],i=0; while(n>=1024&&i<u.length-1){n/=1024;i++} return `${n.toFixed(1)} ${u[i]}`;
+}
+function esc(s){return String(s??'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
 async function load(){
   const r=await fetch('/api/state');
   const j=await r.json();
+  const ifaces=(j.network.interfaces||[]).slice(0,8);
+  const agents=j.openclaw.agents||[];
+  const sessions=j.openclaw.sessions||[];
+  const conn=(j.network.conn_states||[]).slice(0,6);
+  const maxRate=Math.max(1,...ifaces.map(x=>(x.rx_rate||0)+(x.tx_rate||0)));
+
   document.getElementById('app').innerHTML = `
-    <div class="card"><b>OpenClaw</b><br>Sessions: ${j.openclaw.session_count}<br>Agents: ${j.openclaw.agents.length}<br>Gateway: ${j.openclaw.gateway.mode} / ${j.openclaw.gateway.bind}:${j.openclaw.gateway.port}</div>
-    <div class="card"><b>Agents</b><pre>${j.openclaw.agents.map(a=>`${a.emoji||''} ${a.id} | ${a.model_primary} | acct: ${(a.bound_accounts||[]).join(',')||'-'}`).join('\n')}</pre></div>
-    <div class="card"><b>Sessions</b><pre>${j.openclaw.sessions.map(s=>`${s.agent} | ${s.kind} | ${s.status} | ${s.model}`).join('\n')}</pre></div>
-    <div class="card"><b>Network</b><pre>${j.network.interfaces.slice(0,8).map(n=>`${n.name} | ${n.group} | RX ${n.rx_rate.toFixed(1)} | TX ${n.tx_rate.toFixed(1)}`).join('\n')}</pre></div>
-    <div class="card"><b>Docker</b><pre>${(j.docker.networks||[]).join('\n') || '-'}\n\n${(j.docker.containers||[]).join('\n') || '-'}</pre></div>`;
+    <div class="hero">
+      <div class="card">
+        <div class="k">OpenClaw</div>
+        <div class="stats">
+          <div><div class="k">Sessions</div><div class="v">${j.openclaw.session_count}</div></div>
+          <div><div class="k">Agents</div><div class="v">${agents.length}</div></div>
+          <div><div class="k">Gateway</div><div class="v" style="font-size:16px">${esc(j.openclaw.gateway.mode||'?')}</div></div>
+        </div>
+        <div style="margin-top:10px">
+          <span class="pill">bind ${esc(j.openclaw.gateway.bind||'?')}</span>
+          <span class="pill">port ${esc(j.openclaw.gateway.port||'?')}</span>
+          <span class="pill">socket ${j.openclaw.socket_activity ? 'active' : 'idle'}</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="k">Host</div>
+        <div class="stats">
+          <div><div class="k">Interfaces</div><div class="v">${j.network.interfaces.length}</div></div>
+          <div><div class="k">Conn States</div><div class="v">${conn.length}</div></div>
+          <div><div class="k">Docker Nets</div><div class="v">${(j.docker.networks||[]).length}</div></div>
+        </div>
+        <div class="small" style="margin-top:12px">Auto refresh alle 2s</div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:12px">
+      <div class="card">
+        <div class="k">Agents</div>
+        <div class="list">
+          ${agents.map(a=>`<div class="row"><div class="left"><div class="title">${esc(a.emoji||'')} ${esc(a.id)}</div><div class="meta mono">${esc(a.model_primary||'-')}</div></div><div class="meta">${esc((a.bound_accounts||[]).join(', ')||'-')}</div></div>`).join('') || '<div class="small">Keine Agent-Daten</div>'}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="k">Live Sessions</div>
+        <div class="list">
+          ${sessions.map(s=>`<div class="row"><div class="left"><div class="title">${esc(s.agent)} <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('') || '<div class="small">Keine Session-Daten</div>'}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="k">Interfaces</div>
+        <div class="list">
+          ${ifaces.map(n=>{const total=(n.rx_rate||0)+(n.tx_rate||0); const pct=Math.max(2,Math.min(100,(total/maxRate)*100)); return `<div class="row"><div class="left" style="flex:1"><div class="title mono">${esc(n.name)} <span class="meta">${esc(n.group)}</span></div><div class="meta">RX ${rate(n.rx_rate)} · TX ${rate(n.tx_rate)}</div><div class="bar"><div class="fill" style="width:${pct}%"></div></div></div></div>`}).join('') || '<div class="small">Keine Interface-Daten</div>'}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="k">Connection States</div>
+        <div class="list">
+          ${conn.map(c=>`<div class="row"><div class="title mono">${esc(c.state)}</div><div class="title">${esc(c.count)}</div></div>`).join('') || '<div class="small">Keine Verbindungsdaten</div>'}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="k">Docker</div>
+        <div class="small">Netzwerke</div>
+        <div class="list" style="margin-bottom:10px">${(j.docker.networks||[]).map(x=>`<div class="row"><div class="title mono">${esc(x)}</div></div>`).join('') || '<div class="small">Keine Docker-Netze</div>'}</div>
+        <div class="small">Container</div>
+        <div class="list">${(j.docker.containers||[]).map(x=>`<div class="row"><div class="title mono">${esc(x)}</div></div>`).join('') || '<div class="small">Keine laufenden Container</div>'}</div>
+      </div>
+    </div>`;
 }
 load(); setInterval(load, 2000);
 </script>
 </body>
 </html>)HTML";
 }
-
 void server_loop(int port) {
     g_server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (g_server_fd < 0) return;
