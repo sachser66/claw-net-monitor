@@ -393,8 +393,8 @@ int main() {
         mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Host", "Docker", tick + 4, 10, docker_activity, docker_activity > 1.0 ? "gemessen via docker/br-Ifaces" : "kein Aktivitaetswert"), left_w - 6).c_str());
         mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Localhost", "OpenClaw", tick + 2, 8, openclaw_activity, snapshot.openclaw_socket_activity ? "gemessen: openclaw Socket auf localhost" : "kein belegter openclaw localhost-Socket"), left_w - 6).c_str());
 
-        mvprintw(21, 2, "%s", shorten("OpenClaw-Sessions auf diesem Host", left_w - 6).c_str());
-        mvprintw(22, 2, "Sessions gesamt: %d", snapshot.openclaw_session_count);
+        mvprintw(21, 2, "%s", shorten("OpenClaw: alle Sessions aller Agenten", left_w - 6).c_str());
+        mvprintw(22, 2, "Alle Sessions gesamt: %d", snapshot.openclaw_session_count);
         mvprintw(23, 2, "%s", shorten(snapshot.openclaw_socket_activity ? "Belegt: openclaw hat localhost-Socket(s) im ss-Output." : "Nicht belegt: kein eindeutiger openclaw localhost-Socket im ss-Output.", left_w - 6).c_str());
         row = 24;
         if (!snapshot.openclaw_sockets.empty()) {
@@ -404,7 +404,7 @@ int main() {
             }
         }
         if (row < LINES - 1) {
-            mvprintw(row++, 2, "%s", shorten("OpenClaw-Sessions:", left_w - 6).c_str());
+            mvprintw(row++, 2, "%s", shorten("Sessions aller Agenten:", left_w - 6).c_str());
         }
         if (snapshot.openclaw_sessions.empty()) {
             mvprintw(row, 2, "Keine Sessiondaten gefunden.");
