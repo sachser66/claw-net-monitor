@@ -30,6 +30,8 @@ struct OpenClawSession {
     std::string status;
     std::string kind;
     std::string key;
+    std::string display;
+    long long updated_at = 0;
 };
 
 struct Snapshot {
@@ -198,6 +200,26 @@ std::string json_get_string_field(const std::string& block, const std::string& f
     if (end == std::string::npos) return "";
     return block.substr(start + 1, end - start - 1);
 }
+long long json_get_number_field(const std::string& block, const std::string& field) {
+    std::string needle = "\"" + field + "\"";
+    auto pos = block.find(needle);
+    if (pos == std::string::npos) return 0;
+    auto colon = block.find(':', pos);
+    if (colon == std::string::npos) return 0;
+    std::stringstream ss(block.substr(colon + 1));
+    long long value = 0;
+    ss >> value;
+    return value;
+}
+
+std::string infer_session_channel(const std::string& key, const std::string& display) {
+    if (key.find("telegram") != std::string::npos) return "telegram";
+    if (key.find("tui") != std::string::npos) return "tui";
+    if (display.find("telegram") != std::string::npos) return "telegram";
+    if (display.find("tui") != std::string::npos) return "tui";
+    return "other";
+}
+
 
 std::vector<OpenClawSession> extract_sessions(const std::string& json) {
     std::vector<OpenClawSession> items;
@@ -216,6 +238,8 @@ std::vector<OpenClawSession> extract_sessions(const std::string& json) {
         s.agent = json_get_string_field(block, "agentId");
         s.status = json_get_string_field(block, "status");
         s.kind = json_get_string_field(block, "kind");
+        s.display = json_get_string_field(block, "displayName");
+        s.updated_at = json_get_number_field(block, "updatedAt");
 
         if (s.agent.empty() && s.key.rfind("agent:", 0) == 0) {
             auto first = s.key.find(':');
@@ -232,6 +256,7 @@ std::vector<OpenClawSession> extract_sessions(const std::string& json) {
 
     std::sort(items.begin(), items.end(), [](const auto& a, const auto& b) {
         if (a.agent != b.agent) return a.agent < b.agent;
+        if (a.updated_at != b.updated_at) return a.updated_at > b.updated_at;
         if (a.status != b.status) return a.status < b.status;
         return a.key < b.key;
     });
@@ -335,6 +360,12 @@ int color_for_kind(const std::string& kind) {
     return 1;
 }
 
+int color_for_channel(const std::string& channel) {
+    if (channel == "tui") return 6;
+    if (channel == "telegram") return 3;
+    return 1;
+}
+
 void box(int y, int x, int h, int w, const std::string& title, int color_pair) {
     if (h < 3 || w < 4) return;
     attron(COLOR_PAIR(color_pair));
@@ -433,7 +464,7 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V12");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V13");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
@@ -504,7 +535,12 @@ int main() {
                 attron(COLOR_PAIR(color_for_kind(s.kind)));
                 mvprintw(row, 19, "%s", shorten(s.kind, 10).c_str());
                 attroff(COLOR_PAIR(color_for_kind(s.kind)));
-                mvprintw(row, 29, " | %s", shorten(key_short, left_w - 35).c_str());
+                std::string channel = infer_session_channel(s.key, s.display);
+                mvprintw(row, 29, " | ");
+                attron(COLOR_PAIR(color_for_channel(channel)) | A_BOLD);
+                mvprintw(row, 32, "%s", shorten(channel, 8).c_str());
+                attroff(COLOR_PAIR(color_for_channel(channel)) | A_BOLD);
+                mvprintw(row, 40, " | %s", shorten(key_short, left_w - 46).c_str());
                 row++;
             }
         }
