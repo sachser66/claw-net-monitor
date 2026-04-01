@@ -32,6 +32,7 @@ struct OpenClawSession {
     std::string key;
     std::string display;
     std::string model;
+    std::string model_provider;
     std::string last_channel;
     std::string provider;
     long long updated_at = 0;
@@ -252,6 +253,7 @@ std::vector<OpenClawSession> extract_sessions(const std::string& json) {
         s.kind = json_get_string_field(block, "kind");
         s.display = json_get_string_field(block, "displayName");
         s.model = json_get_string_field(block, "model");
+        s.model_provider = json_get_string_field(block, "modelProvider");
         s.last_channel = json_get_string_field(block, "lastChannel");
         s.provider = json_get_string_field(block, "provider");
         s.updated_at = json_get_number_field(block, "updatedAt");
@@ -491,7 +493,7 @@ int main() {
 
         erase();
         attron(COLOR_PAIR(1) | A_BOLD);
-        mvprintw(0, 2, "claw-net-monitor C++ UX-V18");
+        mvprintw(0, 2, "claw-net-monitor C++ UX-V19");
         attroff(COLOR_PAIR(1) | A_BOLD);
         mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
@@ -534,7 +536,7 @@ int main() {
         }
         if (row < LINES - 1) {
             attron(A_BOLD | COLOR_PAIR(1));
-            mvprintw(row++, 2, "%s", shorten("      STATUS     | TYP        | KANAL     | SESSION            | MODELL", left_w - 6).c_str());
+            mvprintw(row++, 2, "%s", shorten("      STATUS     | TYP        | KANAL     | SESSION         | MODELL      | PROVIDER", left_w - 6).c_str());
             attroff(A_BOLD | COLOR_PAIR(1));
         }
         if (snapshot.openclaw_session_items.empty()) {
@@ -569,8 +571,10 @@ int main() {
                 mvprintw(row, 32, "%s", shorten(channel, 9).c_str());
                 attroff(COLOR_PAIR(color_for_channel(channel)) | A_BOLD);
                 std::string model_short = s.model.empty() ? "-" : s.model;
-                mvprintw(row, 42, " | %s", shorten(session_name, 18).c_str());
-                mvprintw(row, 62, " | %s", shorten(model_short, left_w - 68).c_str());
+                std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
+                mvprintw(row, 42, " | %s", shorten(session_name, 15).c_str());
+                mvprintw(row, 60, " | %s", shorten(model_short, 10).c_str());
+                mvprintw(row, 73, " | %s", shorten(provider_short, left_w - 79).c_str());
                 row++;
             }
         }
