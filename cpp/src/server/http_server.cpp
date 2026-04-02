@@ -44,7 +44,7 @@ std::string make_html() {
 .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
 .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.v{font-size:24px;font-weight:800;margin-top:4px}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#20304f;color:#d9e5ff;font-size:12px;margin:2px 6px 0 0}
 .list{display:grid;gap:8px;margin-top:8px}.row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border:1px solid #2a375b;border-radius:12px;background:rgba(10,16,31,.35)}
-.left{min-width:0}.title{font-weight:700}.meta{font-size:12px;color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.left{min-width:0}.title{font-weight:700}.meta{font-size:12px;color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.agentGroup{border:1px solid #30436f;border-radius:14px;padding:12px;background:rgba(12,19,38,.55)}
 .tag{font-size:11px;border-radius:999px;padding:3px 8px;background:#243253;color:#cfe0ff}.good{color:var(--green)}.warn{color:var(--yellow)}.pink{color:var(--pink)}.cyan{color:var(--cyan)}.blue{color:var(--blue)}
 .bar{height:8px;background:#1b2744;border-radius:999px;overflow:hidden;margin-top:6px}.fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:999px}
 .small{font-size:12px;color:var(--muted)}
@@ -69,6 +69,7 @@ async function load(){
   const agents=j.openclaw.agents||[];
   const sessions=j.openclaw.sessions||[];
   const conn=(j.network.conn_states||[]).slice(0,6);
+  const groupedSessions = Object.entries((sessions||[]).reduce((acc,s)=>{(acc[s.agent] ||= []).push(s); return acc;}, {}));
   const maxRate=Math.max(1,...ifaces.map(x=>(x.rx_rate||0)+(x.tx_rate||0)));
 
   document.getElementById('app').innerHTML = `
@@ -99,16 +100,23 @@ async function load(){
 
     <div class="grid" style="margin-top:12px">
       <div class="card">
-        <div class="k">Agents</div>
+        <div class="k">OpenClaw Agents + Sessions</div>
         <div class="list">
-          ${agents.map(a=>`<div class="row"><div class="left"><div class="title">${esc(a.emoji||'')} ${esc(a.id)}</div><div class="meta mono">${esc(a.model_primary||'-')} | fb: ${esc(((a.fallbacks||[])[0])||'-')}</div></div><div class="meta">${esc((a.bound_accounts||[]).join(', ')||'-')}</div></div>`).join('') || '<div class="small">Keine Agent-Daten</div>'}
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="k">Live Sessions</div>
-        <div class="list">
-          ${sessions.map(s=>`<div class="row"><div class="left"><div class="title">${esc(s.agent)} <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('') || '<div class="small">Keine Session-Daten</div>'}
+          ${agents.map(a=>{
+            const own = sessions.filter(s=>s.agent===a.id);
+            return `<div class="agentGroup">
+              <div class="title">${esc(a.emoji||'')} ${esc(a.id)} <span class="tag">${own.length} sessions</span></div>
+              <div class="meta">name: ${esc(a.name||'-')}</div>
+              <div class="meta mono">workspace: ${esc(a.workspace||'-')}</div>
+              <div class="meta mono">model: ${esc(a.model_primary||'-')}</div>
+              <div class="meta mono">fallbacks: ${esc((a.fallbacks||[]).join(', ')||'-')}</div>
+              <div class="meta">accounts: ${esc((a.bound_accounts||[]).join(', ')||'-')}</div>
+              <div class="list">
+                ${own.map(s=>`<div class="row"><div class="left"><div class="title">${esc((s.key||'').split(':').slice(-1)[0]||s.key||'-')} <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')} | ${esc(s.model_provider||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('') || '<div class="small">Keine Sessions für diesen Agenten</div>'}
+              </div>
+            </div>`;
+          }).join('') || '<div class="small">Keine Agent-Daten</div>'}
+          ${groupedSessions.filter(([agent])=>!agents.find(a=>a.id===agent)).map(([agent, own])=>`<div class="agentGroup"><div class="title">${esc(agent)} <span class="tag">${own.length} sessions</span></div><div class="meta">kein Config-Eintrag gefunden</div><div class="list">${own.map(s=>`<div class="row"><div class="left"><div class="title">${esc((s.key||'').split(':').slice(-1)[0]||s.key||'-')} <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')} | ${esc(s.model_provider||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('')}</div></div>`).join('')}
         </div>
       </div>
 

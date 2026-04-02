@@ -147,16 +147,26 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         mvprintw(row++, 2, "%s", shorten(ev, w - 4).c_str());
     }
 
-    if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten("Agents:", w - 4).c_str());
+    if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten("Agents from openclaw.json:", w - 4).c_str());
     for (std::size_t i = 0; i < snapshot.openclaw_agents.size() && row < oc_bottom; ++i) {
         const auto& a = snapshot.openclaw_agents[i];
         std::string accounts;
-        for (std::size_t j = 0; j < a.bound_accounts.size() && j < 2; ++j) {
-            if (!accounts.empty()) accounts += ",";
+        for (std::size_t j = 0; j < a.bound_accounts.size(); ++j) {
+            if (!accounts.empty()) accounts += ", ";
             accounts += a.bound_accounts[j];
         }
-        std::string line = (a.emoji.empty() ? "" : a.emoji + " ") + a.id + " [sessions " + std::to_string(agent_counts[a.id]) + "] | " + (a.model_primary.empty() ? "-" : a.model_primary) + " | acct: " + (accounts.empty() ? "-" : accounts);
-        mvprintw(row++, 2, "%s", shorten(line, w - 4).c_str());
+        std::string fallbacks;
+        for (std::size_t j = 0; j < a.model_fallbacks.size() && j < 3; ++j) {
+            if (!fallbacks.empty()) fallbacks += ", ";
+            fallbacks += a.model_fallbacks[j];
+        }
+        std::string header = (a.emoji.empty() ? "" : a.emoji + " ") + a.id + " | name: " + (a.name.empty() ? "-" : a.name) + " | sessions: " + std::to_string(agent_counts[a.id]);
+        if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten(header, w - 4).c_str());
+        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten("workspace: " + (a.workspace.empty() ? "-" : a.workspace), w - 6).c_str());
+        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten("model: " + (a.model_primary.empty() ? "-" : a.model_primary), w - 6).c_str());
+        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten("fallbacks: " + (fallbacks.empty() ? "-" : fallbacks), w - 6).c_str());
+        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten("accounts: " + (accounts.empty() ? "-" : accounts), w - 6).c_str());
+        if (row < oc_bottom && i + 1 < snapshot.openclaw_agents.size()) mvprintw(row++, 2, "%s", shorten("---", w - 4).c_str());
     }
 
     std::vector<OpenClawSession> sessions = snapshot.openclaw_session_items;
