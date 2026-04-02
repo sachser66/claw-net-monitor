@@ -24,6 +24,17 @@ std::string fmt_rate(double value) {
     return out.str();
 }
 
+std::string format_duration_short(long long total_seconds) {
+    long long h = total_seconds / 3600;
+    long long m = (total_seconds % 3600) / 60;
+    long long s = total_seconds % 60;
+    std::ostringstream out;
+    if (h > 0) out << h << "h";
+    if (m > 0 || h > 0) out << m << "m";
+    out << s << "s";
+    return out.str();
+}
+
 std::string shorten(const std::string& text, int width) {
     if (width <= 0) return "";
     if (static_cast<int>(text.size()) <= width) return text;
@@ -340,7 +351,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
 
     if (row < oc_bottom) row++;
     if (row < oc_bottom) {
-        std::string details = "Session details: update 5s | seq " + std::to_string(snapshot.openclaw_session_seq);
+        std::string details = "Session details: update 5s | seq " + std::to_string(snapshot.openclaw_session_seq) + " | monitor " + format_duration_short(snapshot.monitor_uptime_seconds);
         mvprintw(row++, 2, "%s", shorten(details, w - 4).c_str());
     }
     if (row < oc_bottom) {

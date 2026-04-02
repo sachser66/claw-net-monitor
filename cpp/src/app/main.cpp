@@ -67,6 +67,7 @@ int main() {
 
     http_server_start(http_port);
 
+    const auto app_started_at = Clock::now();
     auto last = Clock::now();
     CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache;
     TriggerState trigger_state;
@@ -120,6 +121,7 @@ int main() {
         snapshot.interfaces = std::move(interfaces);
         snapshot.conn_states = parse_ss_summary(ss_cache.text);
         snapshot.openclaw_session_seq = session_update_seq;
+        snapshot.monitor_uptime_seconds = std::chrono::duration_cast<std::chrono::seconds>(now - app_started_at).count();
         snapshot.openclaw_session_count = parse_session_count(openclaw_cache.text);
         snapshot.openclaw_session_items = extract_sessions(openclaw_cache.text);
         merge_session_store_metadata(snapshot.openclaw_session_items, openclaw_cache.text);

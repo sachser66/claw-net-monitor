@@ -17,6 +17,7 @@ struct Snapshot {
     GatewayInfo gateway;
     std::vector<std::string> trigger_events;
     long long openclaw_session_seq = 0;
+    long long monitor_uptime_seconds = 0;
     int openclaw_session_count = 0;
     bool openclaw_socket_activity = false;
 };
