@@ -332,7 +332,10 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     });
 
     if (row < oc_bottom) row++;
-    if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten("Session details:", w - 4).c_str());
+    if (row < oc_bottom) {
+        std::string details = "Session details: update 0.5s | seq " + std::to_string(tick);
+        mvprintw(row++, 2, "%s", shorten(details, w - 4).c_str());
+    }
     if (row < oc_bottom) {
         std::string page_line = "All sessions on one page | grouped by agent/orchestrator";
         mvprintw(row++, 2, "%s", shorten(page_line, w - 4).c_str());
