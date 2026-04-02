@@ -157,7 +157,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
 
     erase();
     attron(COLOR_PAIR(1) | A_BOLD);
-    mvprintw(0, 2, "claw-net-monitor C++ UX-V21");
+    mvprintw(0, 2, "claw-net-monitor C++ UX-V21 | copyright by Thomas Riedel");
     attroff(COLOR_PAIR(1) | A_BOLD);
     mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
 
