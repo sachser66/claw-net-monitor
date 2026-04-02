@@ -18,6 +18,17 @@ struct SessionStoreMeta {
     std::string provider;
 };
 
+json parse_json_loose(const std::string& text) {
+    json root = json::parse(text, nullptr, false);
+    if (!root.is_discarded()) return root;
+    auto start = text.find('{');
+    auto end = text.rfind('}');
+    if (start != std::string::npos && end != std::string::npos && end > start) {
+        return json::parse(text.substr(start, end - start + 1), nullptr, false);
+    }
+    return json();
+}
+
 std::unordered_map<std::string, SessionStoreMeta> parse_session_store_metadata(const std::string& text) {
     std::unordered_map<std::string, SessionStoreMeta> out;
     json root = json::parse(text, nullptr, false);
@@ -244,7 +255,7 @@ void merge_session_store_metadata(std::vector<OpenClawSession>& sessions, const 
 
 std::vector<OpenClawModelInfo> extract_models(const std::string& text) {
     std::vector<OpenClawModelInfo> items;
-    json root = json::parse(text, nullptr, false);
+    json root = parse_json_loose(text);
     if (root.is_discarded() || !root.contains("models") || !root["models"].is_array()) return items;
     for (const auto& item : root["models"]) {
         OpenClawModelInfo m;
@@ -260,7 +271,7 @@ std::vector<OpenClawModelInfo> extract_models(const std::string& text) {
 
 std::vector<OpenClawChannelInfo> extract_channels(const std::string& text) {
     std::vector<OpenClawChannelInfo> items;
-    json root = json::parse(text, nullptr, false);
+    json root = parse_json_loose(text);
     if (root.is_discarded() || !root.contains("chat") || !root["chat"].is_object()) return items;
     for (auto it = root["chat"].begin(); it != root["chat"].end(); ++it) {
         const std::string kind = it.key();
