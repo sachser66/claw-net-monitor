@@ -134,6 +134,21 @@ int color_for_channel(const std::string& channel) {
     return 1;
 }
 
+bool is_orchestrator_session(const OpenClawSession& s) {
+    const std::string name = session_name_from_key(s.key);
+    return name == "main" || name == s.agent;
+}
+
+bool is_subagent_session(const OpenClawSession& s) {
+    const std::string name = session_name_from_key(s.key);
+    const std::string channel = infer_session_channel(s);
+    if (is_orchestrator_session(s)) return false;
+    if (channel == "telegram" || channel == "tui" || channel == "webchat" || channel == "discord" || channel == "signal" || channel == "whatsapp") {
+        return false;
+    }
+    return name.find(':') == std::string::npos;
+}
+
 void box(int y, int x, int h, int w, const std::string& title, int color_pair) {
     if (h < 3 || w < 4) return;
     attron(COLOR_PAIR(color_pair));
@@ -281,6 +296,8 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     std::vector<OpenClawSession> sessions = snapshot.openclaw_session_items;
     std::sort(sessions.begin(), sessions.end(), [](const OpenClawSession& a, const OpenClawSession& b) {
         if (a.agent != b.agent) return a.agent < b.agent;
+        if (is_orchestrator_session(a) != is_orchestrator_session(b)) return is_orchestrator_session(a) > is_orchestrator_session(b);
+        if (is_subagent_session(a) != is_subagent_session(b)) return is_subagent_session(a) > is_subagent_session(b);
         return a.key < b.key;
     });
 
@@ -315,14 +332,18 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         std::string session_name = session_name_from_key(s.key);
         std::string channel = infer_session_channel(s);
         std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
-        print_segments(row++, 2, w - 4, {
-            {1, "- "},
+        const bool orchestrator = is_orchestrator_session(s);
+        const bool subagent = is_subagent_session(s);
+        const int indent = subagent ? 6 : 2;
+        const std::string prefix = orchestrator ? "* " : (subagent ? "  - " : "- ");
+        print_segments(row++, indent, w - indent - 2, {
+            {10, prefix},
             {color_for_value(channel), channel},
-            {1, " | "},
+            {10, " | "},
             {color_for_value(session_name), session_name},
-            {1, " | "},
+            {10, " | "},
             {color_for_value(s.model), s.model},
-            {1, " | "},
+            {10, " | "},
             {color_for_value(provider_short), provider_short}
         });
     }
