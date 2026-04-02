@@ -380,7 +380,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             std::string session_name = !s.label.empty() ? s.label : session_name_from_key(s.key);
             std::string channel = infer_session_channel(s);
             std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
-            const int indent = subagent ? 10 : 2;
+            const int indent = subagent ? 12 : 6;
             const std::string prefix = orchestrator ? "* orchestrator | " : (subagent ? "  -> subagent | " : "- ");
             print_segments(row++, indent, w - indent - 2, {
                 {10, prefix},
