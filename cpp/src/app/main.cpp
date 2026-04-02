@@ -103,6 +103,12 @@ int main() {
         snapshot.openclaw_session_items = extract_sessions(openclaw_cache.text);
         snapshot.openclaw_agents = extract_agent_configs(config_cache.text);
         snapshot.gateway = extract_gateway_info(gateway_cache.text);
+        if (snapshot.openclaw_agents.empty() && !config_cache.text.empty()) {
+            snapshot.openclaw_agents = extract_agent_configs(read_file_text("/home/tr4/.openclaw/openclaw.json"));
+        }
+        if ((snapshot.gateway.mode.empty() || snapshot.gateway.bind.empty()) && !gateway_cache.text.empty()) {
+            snapshot.gateway = extract_gateway_info(gateway_cache.text);
+        }
         snapshot.openclaw_sockets = parse_openclaw_sockets(ss_cache.text);
         snapshot.openclaw_socket_activity = has_openclaw_local_activity(snapshot.openclaw_sockets);
         snapshot.docker_networks = parse_lines(docker_net_cache.text, 6);

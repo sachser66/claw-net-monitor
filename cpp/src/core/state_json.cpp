@@ -43,6 +43,12 @@ std::string snapshot_to_json(const Snapshot& snapshot) {
         out << "\"emoji\":\"" << escape_json(a.emoji) << "\",";
         out << "\"workspace\":\"" << escape_json(a.workspace) << "\",";
         out << "\"model_primary\":\"" << escape_json(a.model_primary) << "\",";
+        out << "\"fallbacks\":[";
+        for (std::size_t j = 0; j < a.model_fallbacks.size(); ++j) {
+            if (j) out << ',';
+            out << '"' << escape_json(a.model_fallbacks[j]) << '"';
+        }
+        out << "],";
         out << "\"bound_accounts\":[";
         for (std::size_t j = 0; j < a.bound_accounts.size(); ++j) {
             if (j) out << ',';
