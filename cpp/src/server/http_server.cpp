@@ -83,7 +83,7 @@ async function load(){
         <div style="margin-top:10px">
           <span class="pill">bind ${esc(j.openclaw.gateway.bind||'?')}</span>
           <span class="pill">port ${esc(j.openclaw.gateway.port||'?')}</span>
-          <span class="pill">socket ${j.openclaw.socket_activity ? 'active' : 'idle'}</span>
+          <span class="pill">socket ${j.openclaw.socket_activity ? 'active' : 'idle'}</span> <span class="pill">events ${(j.openclaw.trigger_events||[]).slice(0,3).join(', ')||'-'}</span>
         </div>
       </div>
       <div class="card">

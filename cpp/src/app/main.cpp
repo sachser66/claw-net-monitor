@@ -9,6 +9,7 @@
 #include "../collectors/openclaw_collector.hpp"
 #include "../core/snapshot.hpp"
 #include "../core/state_json.hpp"
+#include "../core/triggers.hpp"
 #include "../renderers/terminal_renderer.hpp"
 #include "../util/exec.hpp"
 #include "../server/http_server.hpp"
@@ -54,6 +55,7 @@ int main() {
 
     auto last = Clock::now();
     CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache;
+    TriggerState trigger_state;
     int tick = 0;
 
     while (true) {
@@ -114,6 +116,8 @@ int main() {
         snapshot.docker_networks = parse_lines(docker_net_cache.text, 6);
         snapshot.docker_containers = parse_lines(docker_ps_cache.text, 6);
         auto groups = build_group_stats(snapshot.interfaces);
+        const auto config_hash = std::hash<std::string>{}(config_cache.text);
+        snapshot.trigger_events = detect_trigger_events(trigger_state, snapshot, config_hash);
 
         http_server_publish_json(snapshot_to_json(snapshot));
         render_terminal(snapshot, groups, tick);

@@ -15,6 +15,7 @@ struct Snapshot {
     std::vector<std::string> docker_containers;
     std::vector<std::string> openclaw_sockets;
     GatewayInfo gateway;
+    std::vector<std::string> trigger_events;
     int openclaw_session_count = 0;
     bool openclaw_socket_activity = false;
 };

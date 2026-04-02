@@ -134,7 +134,17 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     mvprintw(21, 2, "%s", shorten("OpenClaw: Config + Live-Sessions", left_w - 6).c_str());
     mvprintw(22, 2, "Sessions: %d | Agents: %d", snapshot.openclaw_session_count, static_cast<int>(snapshot.openclaw_agents.size()));
     mvprintw(23, 2, "%s", shorten((std::string("Gateway: ") + (snapshot.gateway.mode.empty() ? "?" : snapshot.gateway.mode) + " / bind " + (snapshot.gateway.bind.empty() ? "?" : snapshot.gateway.bind) + " / port " + (snapshot.gateway.port.empty() ? "?" : snapshot.gateway.port)).c_str(), left_w - 6).c_str());
-    row = 24;
+    if (!snapshot.trigger_events.empty()) {
+        std::string ev = "Events: ";
+        for (std::size_t i = 0; i < snapshot.trigger_events.size() && i < 3; ++i) {
+            if (i) ev += ", ";
+            ev += snapshot.trigger_events[i];
+        }
+        mvprintw(24, 2, "%s", shorten(ev, left_w - 6).c_str());
+        row = 25;
+    } else {
+        row = 24;
+    }
     if (!snapshot.openclaw_sockets.empty()) {
         mvprintw(row++, 2, "%s", shorten("OpenClaw-Sockets:", left_w - 6).c_str());
         for (std::size_t i = 0; i < snapshot.openclaw_sockets.size() && row < LINES - 1; ++i) {

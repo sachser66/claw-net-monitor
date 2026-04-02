@@ -58,6 +58,13 @@ std::string snapshot_to_json(const Snapshot& snapshot) {
     }
     out << "],";
 
+    out << "\"trigger_events\":[";
+    for (std::size_t i = 0; i < snapshot.trigger_events.size(); ++i) {
+        if (i) out << ',';
+        out << '"' << escape_json(snapshot.trigger_events[i]) << '"';
+    }
+    out << "],";
+
     out << "\"sessions\":[";
     for (std::size_t i = 0; i < snapshot.openclaw_session_items.size(); ++i) {
         const auto& s = snapshot.openclaw_session_items[i];
