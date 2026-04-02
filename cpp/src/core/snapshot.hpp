@@ -11,6 +11,8 @@ struct Snapshot {
     std::vector<std::pair<std::string, int>> conn_states;
     std::vector<OpenClawSession> openclaw_session_items;
     std::vector<OpenClawAgentConfig> openclaw_agents;
+    std::vector<OpenClawModelInfo> openclaw_models;
+    std::vector<OpenClawChannelInfo> openclaw_channels;
     std::vector<std::string> docker_networks;
     std::vector<std::string> docker_containers;
     std::vector<std::string> openclaw_sockets;

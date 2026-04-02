@@ -54,7 +54,17 @@ std::string snapshot_to_json(const Snapshot& snapshot) {
             if (j) out << ',';
             out << '"' << escape_json(a.bound_accounts[j]) << '"';
         }
-        out << "]}";
+        out << "],";
+        out << "\"bound_channels\":[";
+        for (std::size_t j = 0; j < a.bound_channels.size(); ++j) {
+            if (j) out << ',';
+            out << '"' << escape_json(a.bound_channels[j]) << '"';
+        }
+        out << "],";
+        out << "\"primary_model_available\":" << (a.primary_model_available ? "true" : "false") << ",";
+        out << "\"fallback_models_available\":" << a.fallback_models_available << ",";
+        out << "\"fallback_models_total\":" << a.fallback_models_total;
+        out << "}";
     }
     out << "],";
 
@@ -75,7 +85,36 @@ std::string snapshot_to_json(const Snapshot& snapshot) {
         out << "\"kind\":\"" << escape_json(s.kind) << "\",";
         out << "\"key\":\"" << escape_json(s.key) << "\",";
         out << "\"model\":\"" << escape_json(s.model) << "\",";
-        out << "\"model_provider\":\"" << escape_json(s.model_provider) << "\"";
+        out << "\"model_provider\":\"" << escape_json(s.model_provider) << "\",";
+        out << "\"last_channel\":\"" << escape_json(s.last_channel) << "\",";
+        out << "\"provider\":\"" << escape_json(s.provider) << "\",";
+        out << "\"spawned_by\":\"" << escape_json(s.spawned_by) << "\",";
+        out << "\"label\":\"" << escape_json(s.label) << "\"";
+        out << '}';
+    }
+    out << "],";
+
+    out << "\"models\":[";
+    for (std::size_t i = 0; i < snapshot.openclaw_models.size(); ++i) {
+        const auto& m = snapshot.openclaw_models[i];
+        if (i) out << ',';
+        out << '{';
+        out << "\"key\":\"" << escape_json(m.key) << "\",";
+        out << "\"name\":\"" << escape_json(m.name) << "\",";
+        out << "\"provider\":\"" << escape_json(m.provider) << "\",";
+        out << "\"available\":" << (m.available ? "true" : "false");
+        out << '}';
+    }
+    out << "],";
+
+    out << "\"channels\":[";
+    for (std::size_t i = 0; i < snapshot.openclaw_channels.size(); ++i) {
+        const auto& c = snapshot.openclaw_channels[i];
+        if (i) out << ',';
+        out << '{';
+        out << "\"kind\":\"" << escape_json(c.kind) << "\",";
+        out << "\"account_id\":\"" << escape_json(c.account_id) << "\",";
+        out << "\"label\":\"" << escape_json(c.label) << "\"";
         out << '}';
     }
     out << "]},";

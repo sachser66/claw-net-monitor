@@ -299,6 +299,14 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
                 fallback_summary += a.model_fallbacks[j];
             }
         }
+        std::string channel_summary = "-";
+        if (!a.bound_channels.empty()) {
+            channel_summary.clear();
+            for (std::size_t j = 0; j < a.bound_channels.size(); ++j) {
+                if (j) channel_summary += ", ";
+                channel_summary += a.bound_channels[j];
+            }
+        }
         long long latest_agent_update = 0;
         for (const auto& s : snapshot.openclaw_session_items) {
             if (s.agent == a.id && s.updated_at > latest_agent_update) latest_agent_update = s.updated_at;
@@ -318,12 +326,21 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         if (row < oc_bottom) {
             const std::string model = a.model_primary.empty() ? "-" : a.model_primary;
             const std::string account_text = accounts.empty() ? "-" : accounts;
+            const std::string model_health = a.primary_model_available ? "primary ok" : "primary missing";
             print_segments(row++, 4, w - 6, {
                 {10, "model: "},
                 {color_for_value(model), model},
-                {10, " | accounts: "},
-                {color_for_value(account_text), account_text}
+                {10, " | model-status: "},
+                {a.primary_model_available ? 6 : 11, model_health}
             });
+            if (row < oc_bottom) {
+                print_segments(row++, 4, w - 6, {
+                    {10, "accounts: "},
+                    {color_for_value(account_text), account_text},
+                    {10, " | channels: "},
+                    {color_for_value(channel_summary), channel_summary}
+                });
+            }
         }
         if (row < oc_bottom) {
             const std::string workspace = a.workspace.empty() ? "-" : a.workspace;
@@ -333,10 +350,17 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             });
         }
         if (row < oc_bottom) {
+            const std::string fb_health = std::to_string(a.fallback_models_available) + "/" + std::to_string(a.fallback_models_total) + " ok";
             print_segments(row++, 4, w - 6, {
                 {10, "fallbacks: "},
                 {color_for_value(fallback_summary), fallback_summary}
             });
+            if (row < oc_bottom) {
+                print_segments(row++, 4, w - 6, {
+                    {10, "fallback-status: "},
+                    {a.fallback_models_available == a.fallback_models_total ? 6 : 3, fb_health}
+                });
+            }
         }
         if (row < oc_bottom && i + 1 < snapshot.openclaw_agents.size()) {
             row++;

@@ -240,3 +240,65 @@ void merge_session_store_metadata(std::vector<OpenClawSession>& sessions, const 
         if (s.provider.empty()) s.provider = it->second.provider;
     }
 }
+
+
+std::vector<OpenClawModelInfo> extract_models(const std::string& text) {
+    std::vector<OpenClawModelInfo> items;
+    json root = json::parse(text, nullptr, false);
+    if (root.is_discarded() || !root.contains("models") || !root["models"].is_array()) return items;
+    for (const auto& item : root["models"]) {
+        OpenClawModelInfo m;
+        m.key = item.value("key", "");
+        m.name = item.value("name", "");
+        m.available = item.value("available", false) && !item.value("missing", false);
+        auto slash = m.key.find('/');
+        m.provider = slash == std::string::npos ? "" : m.key.substr(0, slash);
+        if (!m.key.empty()) items.push_back(std::move(m));
+    }
+    return items;
+}
+
+std::vector<OpenClawChannelInfo> extract_channels(const std::string& text) {
+    std::vector<OpenClawChannelInfo> items;
+    json root = json::parse(text, nullptr, false);
+    if (root.is_discarded() || !root.contains("chat") || !root["chat"].is_object()) return items;
+    for (auto it = root["chat"].begin(); it != root["chat"].end(); ++it) {
+        const std::string kind = it.key();
+        if (!it.value().is_array()) continue;
+        for (const auto& account : it.value()) {
+            if (!account.is_string()) continue;
+            OpenClawChannelInfo c;
+            c.kind = kind;
+            c.account_id = account.get<std::string>();
+            c.label = c.kind + ":" + c.account_id;
+            items.push_back(std::move(c));
+        }
+    }
+    return items;
+}
+
+void enrich_agents_with_models(std::vector<OpenClawAgentConfig>& agents, const std::vector<OpenClawModelInfo>& models) {
+    std::unordered_map<std::string, bool> available;
+    for (const auto& m : models) available[m.key] = m.available;
+    for (auto& a : agents) {
+        a.primary_model_available = available.count(a.model_primary) ? available[a.model_primary] : false;
+        a.fallback_models_total = static_cast<int>(a.model_fallbacks.size());
+        a.fallback_models_available = 0;
+        for (const auto& fb : a.model_fallbacks) {
+            if (available.count(fb) && available[fb]) a.fallback_models_available++;
+        }
+    }
+}
+
+void enrich_agents_with_channels(std::vector<OpenClawAgentConfig>& agents, const std::vector<OpenClawChannelInfo>& channels) {
+    for (auto& a : agents) {
+        a.bound_channels.clear();
+        for (const auto& account : a.bound_accounts) {
+            for (const auto& ch : channels) {
+                if (ch.account_id == account) a.bound_channels.push_back(ch.kind + ":" + ch.account_id);
+            }
+        }
+        std::sort(a.bound_channels.begin(), a.bound_channels.end());
+        a.bound_channels.erase(std::unique(a.bound_channels.begin(), a.bound_channels.end()), a.bound_channels.end());
+    }
+}

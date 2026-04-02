@@ -70,7 +70,7 @@ int main() {
     const auto app_started_at = Clock::now();
     auto last = Clock::now();
     auto next_tick = Clock::now();
-    CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache;
+    CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache, models_cache, channels_cache;
     TriggerState trigger_state;
     long long session_update_seq = 0;
     int tick = 0;
@@ -107,6 +107,16 @@ int main() {
             config_cache.fetched_at = now;
             config_cache.ready = true;
         }
+        if (!models_cache.ready || now - models_cache.fetched_at > std::chrono::seconds(30)) {
+            models_cache.text = exec_read("openclaw models list --json 2>/dev/null || true");
+            models_cache.fetched_at = now;
+            models_cache.ready = true;
+        }
+        if (!channels_cache.ready || now - channels_cache.fetched_at > std::chrono::seconds(10)) {
+            channels_cache.text = exec_read("openclaw channels list --json 2>/dev/null || true");
+            channels_cache.fetched_at = now;
+            channels_cache.ready = true;
+        }
         if (!docker_net_cache.ready || now - docker_net_cache.fetched_at > std::chrono::seconds(10)) {
             docker_net_cache.text = exec_read("docker network ls --format '{{.Name}}  {{.Driver}}  {{.Scope}}' 2>/dev/null");
             docker_net_cache.fetched_at = now;
@@ -127,6 +137,10 @@ int main() {
         snapshot.openclaw_session_items = extract_sessions(openclaw_cache.text);
         merge_session_store_metadata(snapshot.openclaw_session_items, openclaw_cache.text);
         snapshot.openclaw_agents = extract_agent_configs(config_cache.text);
+        snapshot.openclaw_models = extract_models(models_cache.text);
+        snapshot.openclaw_channels = extract_channels(channels_cache.text);
+        enrich_agents_with_models(snapshot.openclaw_agents, snapshot.openclaw_models);
+        enrich_agents_with_channels(snapshot.openclaw_agents, snapshot.openclaw_channels);
         snapshot.gateway = extract_gateway_info(gateway_cache.text);
         if (snapshot.openclaw_agents.empty() && !config_cache.text.empty()) {
             snapshot.openclaw_agents = extract_agent_configs(read_file_text("/home/tr4/.openclaw/openclaw.json"));

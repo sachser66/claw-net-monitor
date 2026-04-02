@@ -37,6 +37,25 @@ struct OpenClawAgentConfig {
     std::string model_primary;
     std::vector<std::string> model_fallbacks;
     std::vector<std::string> bound_accounts;
+    std::vector<std::string> bound_channels;
+    bool primary_model_available = false;
+    int fallback_models_available = 0;
+    int fallback_models_total = 0;
+};
+
+struct OpenClawModelInfo {
+    std::string key;
+    std::string name;
+    std::string provider;
+    bool available = false;
+};
+
+struct OpenClawChannelInfo {
+    std::string kind;
+    std::string account_id;
+    std::string label;
+    bool enabled = true;
+    bool connected = true;
 };
 
 struct GatewayInfo {

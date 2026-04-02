@@ -14,3 +14,7 @@ std::string infer_session_channel(const OpenClawSession& s);
 std::string session_name_from_key(const std::string& key);
 
 void merge_session_store_metadata(std::vector<OpenClawSession>& sessions, const std::string& sessions_json);
+std::vector<OpenClawModelInfo> extract_models(const std::string& json);
+std::vector<OpenClawChannelInfo> extract_channels(const std::string& json);
+void enrich_agents_with_models(std::vector<OpenClawAgentConfig>& agents, const std::vector<OpenClawModelInfo>& models);
+void enrich_agents_with_channels(std::vector<OpenClawAgentConfig>& agents, const std::vector<OpenClawChannelInfo>& channels);

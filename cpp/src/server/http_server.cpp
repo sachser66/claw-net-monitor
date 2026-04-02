@@ -78,10 +78,12 @@ async function load(){
     <div class="hero">
       <div class="card">
         <div class="k">OpenClaw</div>
-        <div class="stats">
+        <div class="stats" style="grid-template-columns:repeat(5,1fr)">
           <div><div class="k">Sessions</div><div class="v">${j.openclaw.session_count}</div></div>
           <div><div class="k">Agents</div><div class="v">${agents.length}</div></div>
           <div><div class="k">Gateway</div><div class="v" style="font-size:16px">${esc(j.openclaw.gateway.mode||'?')}</div></div>
+          <div><div class="k">Models</div><div class="v">${(j.openclaw.models||[]).length}</div></div>
+          <div><div class="k">Channels</div><div class="v">${(j.openclaw.channels||[]).length}</div></div>
         </div>
         <div style="margin-top:10px">
           <span class="pill">bind ${esc(j.openclaw.gateway.bind||'?')}</span>
@@ -110,15 +112,30 @@ async function load(){
               <div class="title">${esc(a.emoji||'')} ${esc(a.id)} <span class="tag">${own.length} sessions</span></div>
               <div class="meta">name: ${esc(a.name||'-')}</div>
               <div class="meta mono">workspace: ${esc(a.workspace||'-')}</div>
-              <div class="meta mono">model: ${esc(a.model_primary||'-')}</div>
-              <div class="meta mono">fallbacks: ${esc((a.fallbacks||[]).join(', ')||'-')}</div>
+              <div class="meta mono">model: ${esc(a.model_primary||'-')} ${a.primary_model_available ? '✅' : '❌'}</div>
+              <div class="meta mono">fallbacks: ${esc((a.fallbacks||[]).join(', ')||'-')} (${esc(a.fallback_models_available||0)}/${esc(a.fallback_models_total||0)} ok)</div>
               <div class="meta">accounts: ${esc((a.bound_accounts||[]).join(', ')||'-')}</div>
+              <div class="meta">channels: ${esc((a.bound_channels||[]).join(', ')||'-')}</div>
               <div class="list">
                 ${own.map(s=>`<div class="row"><div class="left"><div class="title">${esc(sessionName(s))} <span class="tag ${channelClass(s.last_channel||s.provider||'other')}">${esc(s.last_channel||s.provider||'other')}</span> <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')} | ${esc(s.model_provider||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('') || '<div class="small">Keine Sessions für diesen Agenten</div>'}
               </div>
             </div>`;
           }).join('') || '<div class="small">Keine Agent-Daten</div>'}
           ${groupedSessions.filter(([agent])=>!agents.find(a=>a.id===agent)).map(([agent, own])=>`<div class="agentGroup"><div class="title">${esc(agent)} <span class="tag">${own.length} sessions</span></div><div class="meta">kein Config-Eintrag gefunden</div><div class="list">${own.map(s=>`<div class="row"><div class="left"><div class="title">${esc(sessionName(s))} <span class="tag ${channelClass(s.last_channel||s.provider||'other')}">${esc(s.last_channel||s.provider||'other')}</span> <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')} | ${esc(s.model_provider||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('')}</div></div>`).join('')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="k">Model Inventory</div>
+        <div class="list">
+          ${(j.openclaw.models||[]).map(m=>`<div class="row"><div class="left"><div class="title mono">${esc(m.key)}</div><div class="meta">${esc(m.name||'-')} | ${esc(m.provider||'-')}</div></div><div class="meta">${m.available ? 'available' : 'missing'}</div></div>`).join('') || '<div class="small">Keine Model-Daten</div>'}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="k">Channels</div>
+        <div class="list">
+          ${(j.openclaw.channels||[]).map(c=>`<div class="row"><div class="left"><div class="title mono">${esc(c.kind)}</div><div class="meta">${esc(c.account_id||'-')}</div></div><div class="meta">${esc(c.label||'-')}</div></div>`).join('') || '<div class="small">Keine Channel-Daten</div>'}
         </div>
       </div>
 
