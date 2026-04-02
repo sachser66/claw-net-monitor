@@ -334,8 +334,8 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
         const bool orchestrator = is_orchestrator_session(s);
         const bool subagent = is_subagent_session(s);
-        const int indent = subagent ? 6 : 2;
-        const std::string prefix = orchestrator ? "* " : (subagent ? "  - " : "- ");
+        const int indent = subagent ? 10 : 2;
+        const std::string prefix = orchestrator ? "* orchestrator | " : (subagent ? "-> subagent | " : "- ");
         print_segments(row++, indent, w - indent - 2, {
             {10, prefix},
             {color_for_value(channel), channel},
