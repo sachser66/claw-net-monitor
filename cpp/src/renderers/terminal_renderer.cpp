@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <map>
 #include <sstream>
+#include <unordered_map>
 
 #include <ncurses.h>
 
@@ -65,11 +66,41 @@ void print_segments(int y, int x, int width, const std::vector<std::pair<int, st
     }
 }
 
+std::vector<int> value_color_palette() {
+    if (has_colors() && COLORS >= 256) {
+        return {34, 40, 45, 51, 69, 75, 81, 87, 99, 111, 117, 123, 135, 141, 147, 153, 171, 177, 183, 190, 197, 203, 209, 215, 221, 227};
+    }
+    return {COLOR_GREEN, COLOR_YELLOW, COLOR_MAGENTA, COLOR_BLUE, COLOR_CYAN, COLOR_RED, COLOR_WHITE};
+}
+
+void ensure_value_color_pairs() {
+    static bool initialized = false;
+    if (initialized || !has_colors()) return;
+    const auto palette = value_color_palette();
+    for (std::size_t i = 0; i < palette.size(); ++i) {
+        init_pair(20 + static_cast<short>(i), static_cast<short>(palette[i]), -1);
+    }
+    initialized = true;
+}
+
 int color_for_value(const std::string& value) {
+    ensure_value_color_pairs();
     if (value.empty() || value == "-") return 7;
-    static const int palette[] = {2, 3, 4, 5, 6, 8, 9};
-    std::size_t h = std::hash<std::string>{}(value);
-    return palette[h % (sizeof(palette) / sizeof(palette[0]))];
+    static std::unordered_map<std::string, int> assigned;
+    static std::size_t next = 0;
+    auto it = assigned.find(value);
+    if (it != assigned.end()) return it->second;
+
+    const auto palette = value_color_palette();
+    if (next < palette.size()) {
+        int pair_id = 20 + static_cast<int>(next++);
+        assigned[value] = pair_id;
+        return pair_id;
+    }
+
+    int pair_id = 20 + static_cast<int>(std::hash<std::string>{}(value) % palette.size());
+    assigned[value] = pair_id;
+    return pair_id;
 }
 
 
