@@ -215,6 +215,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             ev += snapshot.trigger_events[i];
         }
         mvprintw(row++, 2, "%s", shorten(ev, w - 4).c_str());
+        if (row < oc_bottom) row++;
     }
 
     if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten("Agents from openclaw.json:", w - 4).c_str());
