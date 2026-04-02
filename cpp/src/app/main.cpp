@@ -61,6 +61,7 @@ int main() {
             init_pair(8, COLOR_CYAN, -1);
             init_pair(9, COLOR_MAGENTA, -1);
             init_pair(10, COLOR_WHITE, -1);
+            init_pair(11, COLOR_RED, -1);
         }
     }
 

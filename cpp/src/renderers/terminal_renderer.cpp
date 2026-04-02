@@ -69,9 +69,9 @@ void print_segments(int y, int x, int width, const std::vector<std::pair<int, st
 
 std::vector<int> value_color_palette() {
     if (has_colors() && COLORS >= 256) {
-        return {34, 40, 45, 51, 69, 75, 81, 87, 99, 111, 117, 123, 135, 141, 147, 153, 171, 177, 183, 190, 197, 203, 209, 215, 221, 227};
+        return {34, 37, 39, 40, 44, 45, 51, 69, 75, 81, 87, 99, 111, 117, 123, 135, 141, 147, 153, 171, 177, 183, 190, 221, 227, 230};
     }
-    return {COLOR_GREEN, COLOR_YELLOW, COLOR_MAGENTA, COLOR_BLUE, COLOR_CYAN, COLOR_RED, COLOR_WHITE};
+    return {COLOR_GREEN, COLOR_YELLOW, COLOR_MAGENTA, COLOR_BLUE, COLOR_CYAN, COLOR_WHITE, COLOR_GREEN};
 }
 
 void ensure_value_color_pairs() {
@@ -154,7 +154,7 @@ std::string busy_label(long long updated_at_ms) {
 int busy_color(long long updated_at_ms) {
     const long long age_ms = age_ms_from_update(updated_at_ms);
     if (age_ms < 0) return 7;
-    if (age_ms <= 5LL * 60LL * 1000LL) return 9;
+    if (age_ms <= 5LL * 60LL * 1000LL) return 11;
     if (age_ms <= 15LL * 60LL * 1000LL) return 6;
     if (age_ms <= 60LL * 60LL * 1000LL) return 3;
     return 7;
