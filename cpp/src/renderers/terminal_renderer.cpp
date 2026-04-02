@@ -172,17 +172,17 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         return top;
     };
 
-    const int oc_h = std::max(12, LINES - 22);
     const int traffic_h = 7;
     const int flow_h = 5;
     const int conn_h = 6;
-    const int docker_h = std::max(5, LINES - (2 + oc_h + traffic_h + flow_h + conn_h) - 1);
+    const int docker_h = 6;
+    const int oc_h = std::max(12, LINES - (2 + traffic_h + flow_h + conn_h + docker_h) - 1);
 
     const int oc_y = draw_box(oc_h, "OPENCLAW", 4);
     const int traffic_y = draw_box(traffic_h, "WO IST TRAFFIC?", 1);
     const int flow_y = draw_box(flow_h, "PAKETFLUSS", 2);
     const int conn_y = draw_box(conn_h, "VERBINDUNGEN", 3);
-    const int docker_y = draw_box(docker_h, "DOCKER", 5);
+    const int docker_y = draw_box(std::max(5, LINES - y - 1), "DOCKER", 5);
 
     std::map<std::string, int> agent_counts;
     for (const auto& s : snapshot.openclaw_session_items) agent_counts[s.agent]++;
