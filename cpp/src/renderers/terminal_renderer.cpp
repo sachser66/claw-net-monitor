@@ -309,7 +309,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     }
 
     std::vector<OpenClawSession> sessions = snapshot.openclaw_session_items;
-    std::sort(sessions.begin(), sessions.end(), [](const OpenClawSession& a, const OpenClawSession& b) {
+    std::sort(sessions.begin(), sessions.end(), [&sessions](const OpenClawSession& a, const OpenClawSession& b) {
         if (a.agent != b.agent) return a.agent < b.agent;
         const bool a_orch = is_orchestrator_session(a, sessions);
         const bool b_orch = is_orchestrator_session(b, sessions);
