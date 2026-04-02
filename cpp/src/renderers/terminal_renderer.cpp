@@ -349,7 +349,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             std::string channel = infer_session_channel(s);
             std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
             const int indent = subagent ? 10 : 2;
-            const std::string prefix = orchestrator ? "* orchestrator | " : (subagent ? "-> subagent | " : "- ");
+            const std::string prefix = orchestrator ? "* orchestrator | " : (subagent ? "  -> subagent | " : "- ");
             print_segments(row++, indent, w - indent - 2, {
                 {10, prefix},
                 {color_for_value(channel), channel},
@@ -364,11 +364,19 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
 
         for (const auto& s : orchestrators) {
             print_session(s, true, false);
-            for (const auto& sub : subagents) print_session(sub, false, true);
-            subagents.clear();
+        }
+        if (!subagents.empty() && row < oc_bottom) {
+            print_segments(row++, 6, w - 8, {
+                {10, "subagents (no parent link in session data):"}
+            });
+        }
+        for (const auto& s : subagents) print_session(s, false, true);
+        if (!others.empty() && row < oc_bottom) {
+            print_segments(row++, 6, w - 8, {
+                {10, "other sessions:"}
+            });
         }
         for (const auto& s : others) print_session(s, false, false);
-        for (const auto& s : subagents) print_session(s, false, true);
     }
 
     row = traffic_y + 1;
