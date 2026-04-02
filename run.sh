@@ -15,6 +15,12 @@ if [ ! -x "$BIN" ]; then
   cmake --build "$BUILD_DIR" -j
 fi
 
-echo "[claw-net-monitor] starte TUI + Mobile-View"
+MODE="${1:-tui}"
 echo "[claw-net-monitor] iPhone/Browser: http://$(hostname -I | awk '{print $1}'):${PORT}"
+if [ "$MODE" = "headless" ] || [ "${CLAW_MONITOR_HEADLESS:-}" = "1" ]; then
+  echo "[claw-net-monitor] starte Headless + Mobile-View"
+  exec env CLAW_MONITOR_HEADLESS=1 "$BIN"
+fi
+
+echo "[claw-net-monitor] starte TUI + Mobile-View"
 exec "$BIN"

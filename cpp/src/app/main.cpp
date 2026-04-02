@@ -3,6 +3,7 @@
 #include <thread>
 
 #include <ncurses.h>
+#include <unistd.h>
 
 #include "../collectors/docker_collector.hpp"
 #include "../collectors/network_collector.hpp"
@@ -29,26 +30,37 @@ int main() {
         if (parsed > 0 && parsed < 65536) http_port = parsed;
     }
 
-    initscr();
-    noecho();
-    cbreak();
-    curs_set(0);
-    nodelay(stdscr, TRUE);
-    keypad(stdscr, TRUE);
-    timeout(0);
+    bool headless = false;
+    if (const char* env_headless = std::getenv("CLAW_MONITOR_HEADLESS")) {
+        std::string value = env_headless;
+        headless = (value == "1" || value == "true" || value == "yes" || value == "on");
+    }
+    if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO)) {
+        headless = true;
+    }
 
-    if (has_colors()) {
-        start_color();
-        use_default_colors();
-        init_pair(1, COLOR_CYAN, -1);
-        init_pair(2, COLOR_GREEN, -1);
-        init_pair(3, COLOR_YELLOW, -1);
-        init_pair(4, COLOR_MAGENTA, -1);
-        init_pair(5, COLOR_BLUE, -1);
-        init_pair(6, COLOR_GREEN, -1);
-        init_pair(7, COLOR_YELLOW, -1);
-        init_pair(8, COLOR_CYAN, -1);
-        init_pair(9, COLOR_MAGENTA, -1);
+    if (!headless) {
+        initscr();
+        noecho();
+        cbreak();
+        curs_set(0);
+        nodelay(stdscr, TRUE);
+        keypad(stdscr, TRUE);
+        timeout(0);
+
+        if (has_colors()) {
+            start_color();
+            use_default_colors();
+            init_pair(1, COLOR_CYAN, -1);
+            init_pair(2, COLOR_GREEN, -1);
+            init_pair(3, COLOR_YELLOW, -1);
+            init_pair(4, COLOR_MAGENTA, -1);
+            init_pair(5, COLOR_BLUE, -1);
+            init_pair(6, COLOR_GREEN, -1);
+            init_pair(7, COLOR_YELLOW, -1);
+            init_pair(8, COLOR_CYAN, -1);
+            init_pair(9, COLOR_MAGENTA, -1);
+        }
     }
 
     http_server_start(http_port);
@@ -59,8 +71,10 @@ int main() {
     int tick = 0;
 
     while (true) {
-        int ch = getch();
-        if (ch == 'q' || ch == 'Q') break;
+        if (!headless) {
+            int ch = getch();
+            if (ch == 'q' || ch == 'Q') break;
+        }
 
         auto now = Clock::now();
         double dt = std::chrono::duration<double>(now - last).count();
@@ -120,13 +134,15 @@ int main() {
         snapshot.trigger_events = detect_trigger_events(trigger_state, snapshot, config_hash);
 
         http_server_publish_json(snapshot_to_json(snapshot));
-        render_terminal(snapshot, groups, tick);
-        refresh();
+        if (!headless) {
+            render_terminal(snapshot, groups, tick);
+            refresh();
+        }
         tick++;
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     http_server_stop();
-    endwin();
+    if (!headless) endwin();
     return 0;
 }
