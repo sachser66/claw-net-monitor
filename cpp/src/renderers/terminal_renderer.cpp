@@ -210,7 +210,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     attron(COLOR_PAIR(1) | A_BOLD);
     mvprintw(0, 2, "claw-net-monitor C++ UX-V21 | copyright by Thomas Riedel");
     attroff(COLOR_PAIR(1) | A_BOLD);
-    mvprintw(0, COLS - 22, "q quit | refresh 0.5s");
+    mvprintw(0, COLS - 20, "q quit | refresh 5s");
 
     const int x = 1;
     const int w = COLS - 2;
@@ -333,7 +333,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
 
     if (row < oc_bottom) row++;
     if (row < oc_bottom) {
-        std::string details = "Session details: update 0.5s | seq " + std::to_string(tick);
+        std::string details = "Session details: update 5s | seq " + std::to_string(tick);
         mvprintw(row++, 2, "%s", shorten(details, w - 4).c_str());
     }
     if (row < oc_bottom) {
