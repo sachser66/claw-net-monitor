@@ -113,6 +113,7 @@ async function load(){
               <div class="meta">name: ${esc(a.name||'-')}</div>
               <div class="meta mono">workspace: ${esc(a.workspace||'-')}</div>
               <div class="meta mono">model: ${esc(a.model_primary||'-')} ${a.primary_model_available ? '✅' : '❌'}</div>
+              <div class="meta mono">auth: ${esc(((j.openclaw.models||[]).find(m=>m.key===a.model_primary)?.auth_type)||'-')} ${esc(((j.openclaw.models||[]).find(m=>m.key===a.model_primary)?.auth_id)||'')}</div>
               <div class="meta mono">fallbacks: ${esc((a.fallbacks||[]).join(', ')||'-')} (${esc(a.fallback_models_available||0)}/${esc(a.fallback_models_total||0)} ok)</div>
               <div class="meta">accounts: ${esc((a.bound_accounts||[]).join(', ')||'-')}</div>
               <div class="meta">channels: ${esc((a.bound_channels||[]).join(', ')||'-')}</div>
@@ -128,7 +129,7 @@ async function load(){
       <div class="card">
         <div class="k">Model Inventory</div>
         <div class="list">
-          ${(j.openclaw.models||[]).map(m=>`<div class="row"><div class="left"><div class="title mono">${esc(m.key)}</div><div class="meta">${esc(m.name||'-')} | ${esc(m.provider||'-')}</div></div><div class="meta">${m.available ? 'available' : 'missing'}</div></div>`).join('') || '<div class="small">Keine Model-Daten</div>'}
+          ${(j.openclaw.models||[]).map(m=>`<div class="row"><div class="left"><div class="title mono">${esc(m.key)}</div><div class="meta">${esc(m.name||'-')} | ${esc(m.provider||'-')} | auth ${esc(m.auth_type||'-')} ${esc(m.auth_id||'')}</div></div><div class="meta">${m.available ? 'available' : 'missing'}</div></div>`).join('') || '<div class="small">Keine Model-Daten</div>'}
         </div>
       </div>
 

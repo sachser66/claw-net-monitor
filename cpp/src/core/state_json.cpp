@@ -102,6 +102,8 @@ std::string snapshot_to_json(const Snapshot& snapshot) {
         out << "\"key\":\"" << escape_json(m.key) << "\",";
         out << "\"name\":\"" << escape_json(m.name) << "\",";
         out << "\"provider\":\"" << escape_json(m.provider) << "\",";
+        out << "\"auth_id\":\"" << escape_json(m.auth_id) << "\",";
+        out << "\"auth_type\":\"" << escape_json(m.auth_type) << "\",";
         out << "\"available\":" << (m.available ? "true" : "false");
         out << '}';
     }

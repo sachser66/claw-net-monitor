@@ -257,6 +257,19 @@ std::vector<OpenClawModelInfo> extract_models(const std::string& text) {
     std::vector<OpenClawModelInfo> items;
     json root = parse_json_loose(text);
     if (root.is_discarded() || !root.contains("models") || !root["models"].is_array()) return items;
+
+    std::unordered_map<std::string, std::pair<std::string, std::string>> auth_by_provider;
+    if (root.contains("auth") && root["auth"].is_array()) {
+        for (const auto& item : root["auth"]) {
+            const std::string provider = item.value("provider", "");
+            const std::string auth_id = item.value("id", "");
+            const std::string auth_type = item.value("type", "");
+            if (!provider.empty() && !auth_by_provider.count(provider)) {
+                auth_by_provider[provider] = {auth_id, auth_type};
+            }
+        }
+    }
+
     for (const auto& item : root["models"]) {
         OpenClawModelInfo m;
         m.key = item.value("key", "");
@@ -264,6 +277,11 @@ std::vector<OpenClawModelInfo> extract_models(const std::string& text) {
         m.available = item.value("available", false) && !item.value("missing", false);
         auto slash = m.key.find('/');
         m.provider = slash == std::string::npos ? "" : m.key.substr(0, slash);
+        auto auth_it = auth_by_provider.find(m.provider);
+        if (auth_it != auth_by_provider.end()) {
+            m.auth_id = auth_it->second.first;
+            m.auth_type = auth_it->second.second;
+        }
         if (!m.key.empty()) items.push_back(std::move(m));
     }
     return items;

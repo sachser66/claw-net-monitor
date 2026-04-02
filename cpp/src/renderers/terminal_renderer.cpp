@@ -327,17 +327,31 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             const std::string model = a.model_primary.empty() ? "-" : a.model_primary;
             const std::string account_text = accounts.empty() ? "-" : accounts;
             const std::string model_health = a.primary_model_available ? "primary ok" : "primary missing";
+            std::string auth_text = "-";
+            for (const auto& m : snapshot.openclaw_models) {
+                if (m.key == model) {
+                    auth_text = m.auth_type.empty() ? "-" : m.auth_type;
+                    if (!m.auth_id.empty()) auth_text += " (" + m.auth_id + ")";
+                    break;
+                }
+            }
             print_segments(row++, 4, w - 6, {
                 {10, "model: "},
                 {color_for_value(model), model},
-                {10, " | model-status: "},
-                {a.primary_model_available ? 6 : 11, model_health}
+                {10, " | auth: "},
+                {color_for_value(auth_text), auth_text}
             });
             if (row < oc_bottom) {
                 print_segments(row++, 4, w - 6, {
-                    {10, "accounts: "},
-                    {color_for_value(account_text), account_text},
-                    {10, " | channels: "},
+                    {10, "model-status: "},
+                    {a.primary_model_available ? 6 : 11, model_health},
+                    {10, " | accounts: "},
+                    {color_for_value(account_text), account_text}
+                });
+            }
+            if (row < oc_bottom) {
+                print_segments(row++, 4, w - 6, {
+                    {10, "channels: "},
                     {color_for_value(channel_summary), channel_summary}
                 });
             }
