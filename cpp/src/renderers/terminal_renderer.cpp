@@ -88,8 +88,16 @@ int color_for_value(const std::string& value) {
     if (value.empty() || value == "-") return 7;
     static std::unordered_map<std::string, int> assigned;
     static std::size_t next = 0;
+
     auto it = assigned.find(value);
     if (it != assigned.end()) return it->second;
+
+    for (const auto& [known, pair_id] : assigned) {
+        if (known.find(value) != std::string::npos || value.find(known) != std::string::npos) {
+            assigned[value] = pair_id;
+            return pair_id;
+        }
+    }
 
     const auto palette = value_color_palette();
     if (next < palette.size()) {
@@ -175,14 +183,12 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     const int traffic_h = 7;
     const int flow_h = 5;
     const int conn_h = 6;
-    const int docker_h = 6;
-    const int oc_h = std::max(12, LINES - (2 + traffic_h + flow_h + conn_h + docker_h) - 1);
+    const int oc_h = std::max(12, LINES - (2 + traffic_h + flow_h + conn_h) - 1);
 
     const int oc_y = draw_box(oc_h, "OPENCLAW", 4);
     const int traffic_y = draw_box(traffic_h, "WO IST TRAFFIC?", 1);
     const int flow_y = draw_box(flow_h, "PAKETFLUSS", 2);
-    const int conn_y = draw_box(conn_h, "VERBINDUNGEN", 3);
-    const int docker_y = draw_box(std::max(5, LINES - y - 1), "DOCKER", 5);
+    const int conn_y = draw_box(std::max(5, LINES - y - 1), "VERBINDUNGEN", 3);
 
     std::map<std::string, int> agent_counts;
     for (const auto& s : snapshot.openclaw_session_items) agent_counts[s.agent]++;
@@ -349,16 +355,4 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     }
     attroff(A_DIM);
 
-    row = docker_y + 1;
-    const int docker_bottom = docker_y + docker_h - 1;
-    attron(A_DIM);
-    if (row < docker_bottom) mvprintw(row++, 2, "%s", shorten("Docker-Netzwerke:", w - 4).c_str());
-    for (std::size_t i = 0; i < snapshot.docker_networks.size() && row < docker_bottom; ++i) {
-        mvprintw(row++, 2, "%s", shorten(snapshot.docker_networks[i], w - 4).c_str());
-    }
-    if (row < docker_bottom) mvprintw(row++, 2, "%s", shorten("Laufende Container:", w - 4).c_str());
-    for (std::size_t i = 0; i < snapshot.docker_containers.size() && row < docker_bottom; ++i) {
-        mvprintw(row++, 2, "%s", shorten(snapshot.docker_containers[i], w - 4).c_str());
-    }
-    attroff(A_DIM);
 }
