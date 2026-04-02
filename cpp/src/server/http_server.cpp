@@ -101,7 +101,7 @@ async function load(){
       <div class="card">
         <div class="k">Agents</div>
         <div class="list">
-          ${agents.map(a=>`<div class="row"><div class="left"><div class="title">${esc(a.emoji||'')} ${esc(a.id)}</div><div class="meta mono">${esc(a.model_primary||'-')}</div></div><div class="meta">${esc((a.bound_accounts||[]).join(', ')||'-')}</div></div>`).join('') || '<div class="small">Keine Agent-Daten</div>'}
+          ${agents.map(a=>`<div class="row"><div class="left"><div class="title">${esc(a.emoji||'')} ${esc(a.id)}</div><div class="meta mono">${esc(a.model_primary||'-')} | fb: ${esc(((a.fallbacks||[])[0])||'-')}</div></div><div class="meta">${esc((a.bound_accounts||[]).join(', ')||'-')}</div></div>`).join('') || '<div class="small">Keine Agent-Daten</div>'}
         </div>
       </div>
 

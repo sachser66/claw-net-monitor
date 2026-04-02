@@ -65,6 +65,7 @@ std::vector<OpenClawAgentConfig> extract_agent_configs(const std::string& text) 
 
     std::string default_primary;
     std::string default_workspace;
+    std::vector<std::string> default_fallbacks;
 
     if (root.contains("agents") && root["agents"].is_object()) {
         const auto& agents_obj = root["agents"];
@@ -75,7 +76,14 @@ std::vector<OpenClawAgentConfig> extract_agent_configs(const std::string& text) 
             if (defaults.contains("model")) {
                 const auto& model = defaults["model"];
                 if (model.is_string()) default_primary = model.get<std::string>();
-                else if (model.is_object()) default_primary = model.value("primary", "");
+                else if (model.is_object()) {
+                    default_primary = model.value("primary", "");
+                    if (model.contains("fallbacks") && model["fallbacks"].is_array()) {
+                        for (const auto& fb : model["fallbacks"]) {
+                            if (fb.is_string()) default_fallbacks.push_back(fb.get<std::string>());
+                        }
+                    }
+                }
             }
         }
 
@@ -107,6 +115,7 @@ std::vector<OpenClawAgentConfig> extract_agent_configs(const std::string& text) 
                 }
 
                 if (a.model_primary.empty()) a.model_primary = default_primary;
+                if (a.model_fallbacks.empty()) a.model_fallbacks = default_fallbacks;
                 if (a.name.empty()) a.name = a.id;
                 if (!a.id.empty()) agents.push_back(std::move(a));
             }
@@ -138,14 +147,17 @@ GatewayInfo extract_gateway_info(const std::string& text) {
 
     if (root.contains("gateway") && root["gateway"].is_object()) {
         const auto& gateway = root["gateway"];
-        info.bind = gateway.value("bind", "");
-        info.mode = gateway.value("mode", "");
+        info.bind = gateway.value("bindMode", gateway.value("bindHost", ""));
+        info.mode = "local";
         if (gateway.contains("port")) {
             if (gateway["port"].is_number_integer()) info.port = std::to_string(gateway["port"].get<int>());
             else if (gateway["port"].is_string()) info.port = gateway["port"].get<std::string>();
         }
         if (gateway.contains("remote") && gateway["remote"].is_object()) {
             info.probe_url = gateway["remote"].value("url", "");
+        }
+        if (info.probe_url.empty()) {
+            info.probe_url = gateway.value("probeUrl", "");
         }
     }
 

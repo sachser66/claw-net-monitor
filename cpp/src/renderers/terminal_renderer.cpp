@@ -150,7 +150,8 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
                 if (!accounts.empty()) accounts += ",";
                 accounts += a.bound_accounts[j];
             }
-            std::string line = (a.emoji.empty() ? "" : a.emoji + " ") + a.id + " | " + (a.model_primary.empty() ? "-" : a.model_primary) + " | acct: " + (accounts.empty() ? "-" : accounts);
+            std::string fallback = a.model_fallbacks.empty() ? "-" : a.model_fallbacks.front();
+            std::string line = (a.emoji.empty() ? "" : a.emoji + " ") + a.id + " | " + (a.model_primary.empty() ? "-" : a.model_primary) + " | fb: " + fallback + " | acct: " + (accounts.empty() ? "-" : accounts);
             mvprintw(row++, 2, "%s", shorten(line, left_w - 6).c_str());
         }
     }
