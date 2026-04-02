@@ -226,11 +226,12 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             if (!accounts.empty()) accounts += ", ";
             accounts += a.bound_accounts[j];
         }
-        std::string fallback_summary = "0";
+        std::string fallback_summary = "-";
         if (!a.model_fallbacks.empty()) {
-            fallback_summary = a.model_fallbacks.front();
-            if (a.model_fallbacks.size() > 1) {
-                fallback_summary += " (+" + std::to_string(a.model_fallbacks.size() - 1) + ")";
+            fallback_summary.clear();
+            for (std::size_t j = 0; j < a.model_fallbacks.size(); ++j) {
+                if (j) fallback_summary += ", ";
+                fallback_summary += a.model_fallbacks[j];
             }
         }
         if (row < oc_bottom) {
