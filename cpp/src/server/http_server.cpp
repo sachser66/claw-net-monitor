@@ -45,7 +45,7 @@ std::string make_html() {
 .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.v{font-size:24px;font-weight:800;margin-top:4px}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#20304f;color:#d9e5ff;font-size:12px;margin:2px 6px 0 0}
 .list{display:grid;gap:8px;margin-top:8px}.row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border:1px solid #2a375b;border-radius:12px;background:rgba(10,16,31,.35)}
 .left{min-width:0}.title{font-weight:700}.meta{font-size:12px;color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.agentGroup{border:1px solid #30436f;border-radius:14px;padding:12px;background:rgba(12,19,38,.55)}
-.tag{font-size:11px;border-radius:999px;padding:3px 8px;background:#243253;color:#cfe0ff}.good{color:var(--green)}.warn{color:var(--yellow)}.pink{color:var(--pink)}.cyan{color:var(--cyan)}.blue{color:var(--blue)}
+.tag{font-size:11px;border-radius:999px;padding:3px 8px;background:#243253;color:#cfe0ff}.tag-telegram{background:#173b63;color:#8fd3ff}.tag-tui{background:#234b23;color:#95f29b}.tag-webchat{background:#4b2348;color:#ffb3ef}.tag-discord{background:#2d2d74;color:#c2c8ff}.tag-signal{background:#3b4b58;color:#b8deff}.tag-other{background:#3d3d3d;color:#ddd}.good{color:var(--green)}.warn{color:var(--yellow)}.pink{color:var(--pink)}.cyan{color:var(--cyan)}.blue{color:var(--blue)}
 .bar{height:8px;background:#1b2744;border-radius:999px;overflow:hidden;margin-top:6px}.fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:999px}
 .small{font-size:12px;color:var(--muted)}
 @media (max-width:700px){.hero,.stats{grid-template-columns:1fr}.wrap{padding:10px 10px 24px}.v{font-size:22px}}
@@ -62,6 +62,8 @@ function rate(v){
   let n=Number(v||0),u=['B/s','KB/s','MB/s','GB/s'],i=0; while(n>=1024&&i<u.length-1){n/=1024;i++} return `${n.toFixed(1)} ${u[i]}`;
 }
 function esc(s){return String(s??'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
+function sessionName(s){ const parts=String(s?.key||'').split(':'); return parts[parts.length-1]||s?.key||'-'; }
+function channelClass(ch){ return 'tag-' + ({telegram:'telegram',tui:'tui',webchat:'webchat',discord:'discord',signal:'signal'}[ch]||'other'); }
 async function load(){
   const r=await fetch('/api/state');
   const j=await r.json();
@@ -112,11 +114,11 @@ async function load(){
               <div class="meta mono">fallbacks: ${esc((a.fallbacks||[]).join(', ')||'-')}</div>
               <div class="meta">accounts: ${esc((a.bound_accounts||[]).join(', ')||'-')}</div>
               <div class="list">
-                ${own.map(s=>`<div class="row"><div class="left"><div class="title">${esc((s.key||'').split(':').slice(-1)[0]||s.key||'-')} <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')} | ${esc(s.model_provider||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('') || '<div class="small">Keine Sessions für diesen Agenten</div>'}
+                ${own.map(s=>`<div class="row"><div class="left"><div class="title">${esc(sessionName(s))} <span class="tag ${channelClass(s.last_channel||s.provider||'other')}">${esc(s.last_channel||s.provider||'other')}</span> <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')} | ${esc(s.model_provider||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('') || '<div class="small">Keine Sessions für diesen Agenten</div>'}
               </div>
             </div>`;
           }).join('') || '<div class="small">Keine Agent-Daten</div>'}
-          ${groupedSessions.filter(([agent])=>!agents.find(a=>a.id===agent)).map(([agent, own])=>`<div class="agentGroup"><div class="title">${esc(agent)} <span class="tag">${own.length} sessions</span></div><div class="meta">kein Config-Eintrag gefunden</div><div class="list">${own.map(s=>`<div class="row"><div class="left"><div class="title">${esc((s.key||'').split(':').slice(-1)[0]||s.key||'-')} <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')} | ${esc(s.model_provider||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('')}</div></div>`).join('')}
+          ${groupedSessions.filter(([agent])=>!agents.find(a=>a.id===agent)).map(([agent, own])=>`<div class="agentGroup"><div class="title">${esc(agent)} <span class="tag">${own.length} sessions</span></div><div class="meta">kein Config-Eintrag gefunden</div><div class="list">${own.map(s=>`<div class="row"><div class="left"><div class="title">${esc(sessionName(s))} <span class="tag ${channelClass(s.last_channel||s.provider||'other')}">${esc(s.last_channel||s.provider||'other')}</span> <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')} | ${esc(s.model_provider||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('')}</div></div>`).join('')}
         </div>
       </div>
 

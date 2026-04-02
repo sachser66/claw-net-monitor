@@ -155,18 +155,22 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             if (!accounts.empty()) accounts += ", ";
             accounts += a.bound_accounts[j];
         }
-        std::string fallbacks;
-        for (std::size_t j = 0; j < a.model_fallbacks.size() && j < 3; ++j) {
-            if (!fallbacks.empty()) fallbacks += ", ";
-            fallbacks += a.model_fallbacks[j];
+        std::string fallback_summary = "0";
+        if (!a.model_fallbacks.empty()) {
+            fallback_summary = a.model_fallbacks.front();
+            if (a.model_fallbacks.size() > 1) {
+                fallback_summary += " (+" + std::to_string(a.model_fallbacks.size() - 1) + ")";
+            }
         }
-        std::string header = (a.emoji.empty() ? "" : a.emoji + " ") + a.id + " | name: " + (a.name.empty() ? "-" : a.name) + " | sessions: " + std::to_string(agent_counts[a.id]);
-        if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten(header, w - 4).c_str());
-        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten("workspace: " + (a.workspace.empty() ? "-" : a.workspace), w - 6).c_str());
-        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten("model: " + (a.model_primary.empty() ? "-" : a.model_primary), w - 6).c_str());
-        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten("fallbacks: " + (fallbacks.empty() ? "-" : fallbacks), w - 6).c_str());
-        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten("accounts: " + (accounts.empty() ? "-" : accounts), w - 6).c_str());
-        if (row < oc_bottom && i + 1 < snapshot.openclaw_agents.size()) mvprintw(row++, 2, "%s", shorten("---", w - 4).c_str());
+        std::string line1 = a.id + " | name: " + (a.name.empty() ? "-" : a.name) + " | sessions: " + std::to_string(agent_counts[a.id]);
+        std::string line2 = "model: " + (a.model_primary.empty() ? "-" : a.model_primary) + " | accounts: " + (accounts.empty() ? "-" : accounts);
+        std::string line3 = "workspace: " + (a.workspace.empty() ? "-" : a.workspace);
+        std::string line4 = "fallbacks: " + fallback_summary;
+        if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten(line1, w - 4).c_str());
+        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten(line2, w - 6).c_str());
+        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten(line3, w - 6).c_str());
+        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten(line4, w - 6).c_str());
+        if (row < oc_bottom && i + 1 < snapshot.openclaw_agents.size()) mvhline(row++, 2, '-', std::max(0, w - 4));
     }
 
     std::vector<OpenClawSession> sessions = snapshot.openclaw_session_items;
@@ -201,7 +205,9 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         std::string channel = infer_session_channel(s);
         std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
         std::string line = "- " + channel + " | " + session_name + " | " + s.model + " | " + provider_short;
+        attron(COLOR_PAIR(color_for_channel(channel)));
         mvprintw(row++, 2, "%s", shorten(line, w - 4).c_str());
+        attroff(COLOR_PAIR(color_for_channel(channel)));
     }
 
     row = traffic_y + 1;
