@@ -266,9 +266,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             });
         }
         if (row < oc_bottom && i + 1 < snapshot.openclaw_agents.size()) {
-            attron(COLOR_PAIR(1));
-            mvhline(row++, 2, '-', std::max(0, w - 4));
-            attroff(COLOR_PAIR(1));
+            row++;
         }
     }
 
@@ -322,28 +320,35 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
 
     row = traffic_y + 1;
     const int traffic_bottom = traffic_y + traffic_h - 1;
+    attron(A_DIM);
     mvprintw(row++, 2, "%s", shorten("Gemessene Netzgruppen nach Aktivitaet", w - 4).c_str());
     for (std::size_t i = 0; i < groups.size() && row < traffic_bottom; ++i) {
         std::string prefix = (i == 0 && groups[i].total() > 0.0) ? "* " : "  ";
         mvprintw(row++, 2, "%s", shorten(prefix + summarize_group(groups[i]), w - 4).c_str());
     }
+    attroff(A_DIM);
 
     row = flow_y + 1;
     const int flow_bottom = flow_y + flow_h - 1;
+    attron(A_DIM);
     if (row < flow_bottom) mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Internet", "Host", tick, 14, internet_activity, internet_activity > 1.0 ? "gemessen via Internet/LAN-Ifaces" : "kein Aktivitaetswert"), w - 4).c_str());
     if (row < flow_bottom) mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Host", "Docker", tick + 4, 12, docker_activity, docker_activity > 1.0 ? "gemessen via docker/br-Ifaces" : "kein Aktivitaetswert"), w - 4).c_str());
     if (row < flow_bottom) mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Localhost", "OpenClaw", tick + 2, 10, openclaw_activity, snapshot.openclaw_socket_activity ? "openclaw Socket auf localhost" : "kein belegter openclaw localhost-Socket"), w - 4).c_str());
+    attroff(A_DIM);
 
     row = conn_y + 1;
     const int conn_bottom = conn_y + conn_h - 1;
+    attron(A_DIM);
     mvprintw(row++, 2, "%s", shorten("Welche Verbindungsarten sieht der Host gerade?", w - 4).c_str());
     for (std::size_t i = 0; i < snapshot.conn_states.size() && row < conn_bottom; ++i) {
         std::string line = snapshot.conn_states[i].first + ": " + std::to_string(snapshot.conn_states[i].second);
         mvprintw(row++, 2, "%s", shorten(line, w - 4).c_str());
     }
+    attroff(A_DIM);
 
     row = docker_y + 1;
     const int docker_bottom = docker_y + docker_h - 1;
+    attron(A_DIM);
     if (row < docker_bottom) mvprintw(row++, 2, "%s", shorten("Docker-Netzwerke:", w - 4).c_str());
     for (std::size_t i = 0; i < snapshot.docker_networks.size() && row < docker_bottom; ++i) {
         mvprintw(row++, 2, "%s", shorten(snapshot.docker_networks[i], w - 4).c_str());
@@ -352,4 +357,5 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     for (std::size_t i = 0; i < snapshot.docker_containers.size() && row < docker_bottom; ++i) {
         mvprintw(row++, 2, "%s", shorten(snapshot.docker_containers[i], w - 4).c_str());
     }
+    attroff(A_DIM);
 }
