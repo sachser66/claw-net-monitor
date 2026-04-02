@@ -307,58 +307,68 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     }
 
     std::vector<OpenClawSession> sessions = snapshot.openclaw_session_items;
-    std::sort(sessions.begin(), sessions.end(), [&sessions](const OpenClawSession& a, const OpenClawSession& b) {
+    std::sort(sessions.begin(), sessions.end(), [](const OpenClawSession& a, const OpenClawSession& b) {
         if (a.agent != b.agent) return a.agent < b.agent;
-        const bool a_orch = is_orchestrator_session(a, sessions);
-        const bool b_orch = is_orchestrator_session(b, sessions);
-        if (a_orch != b_orch) return a_orch > b_orch;
-        const bool a_sub = is_subagent_session(a);
-        const bool b_sub = is_subagent_session(b);
-        if (a_sub != b_sub) return a_sub > b_sub;
         return a.key < b.key;
     });
 
     if (row < oc_bottom) row++;
     if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten("Session details:", w - 4).c_str());
-    const int start = 0;
-    const int end = static_cast<int>(sessions.size());
     if (row < oc_bottom) {
-        std::string page_line = "All sessions on one page | sort: agent";
+        std::string page_line = "All sessions on one page | grouped by agent/orchestrator";
         mvprintw(row++, 2, "%s", shorten(page_line, w - 4).c_str());
     }
-    std::string current_agent;
-    for (int i = start; i < end && row < oc_bottom; ++i) {
-        const auto& s = sessions[i];
-        if (s.agent != current_agent && row < oc_bottom) {
-            current_agent = s.agent;
-            attron(A_BOLD);
-            print_segments(row++, 2, w - 4, {
-                {1, "["},
-                {color_for_value(current_agent), current_agent},
-                {1, "] ("},
-                {color_for_value(std::to_string(agent_counts[current_agent])), std::to_string(agent_counts[current_agent])},
-                {1, ")"}
-            });
-            attroff(A_BOLD);
-        }
+
+    std::map<std::string, std::vector<OpenClawSession>> sessions_by_agent;
+    for (const auto& s : sessions) sessions_by_agent[s.agent].push_back(s);
+
+    for (const auto& [agent_id, agent_sessions] : sessions_by_agent) {
         if (row >= oc_bottom) break;
-        std::string session_name = session_name_from_key(s.key);
-        std::string channel = infer_session_channel(s);
-        std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
-        const bool orchestrator = is_orchestrator_session(s, sessions);
-        const bool subagent = is_subagent_session(s);
-        const int indent = subagent ? 10 : 2;
-        const std::string prefix = orchestrator ? "* orchestrator | " : (subagent ? "-> subagent | " : "- ");
-        print_segments(row++, indent, w - indent - 2, {
-            {10, prefix},
-            {color_for_value(channel), channel},
-            {10, " | "},
-            {color_for_value(session_name), session_name},
-            {10, " | "},
-            {color_for_value(s.model), s.model},
-            {10, " | "},
-            {color_for_value(provider_short), provider_short}
+        attron(A_BOLD);
+        print_segments(row++, 2, w - 4, {
+            {1, "["},
+            {color_for_value(agent_id), agent_id},
+            {1, "] ("},
+            {color_for_value(std::to_string(agent_counts[agent_id])), std::to_string(agent_counts[agent_id])},
+            {1, ")"}
         });
+        attroff(A_BOLD);
+
+        std::vector<OpenClawSession> orchestrators;
+        std::vector<OpenClawSession> subagents;
+        std::vector<OpenClawSession> others;
+        for (const auto& s : agent_sessions) {
+            if (is_orchestrator_session(s, agent_sessions)) orchestrators.push_back(s);
+            else if (is_subagent_session(s)) subagents.push_back(s);
+            else others.push_back(s);
+        }
+
+        auto print_session = [&](const OpenClawSession& s, bool orchestrator, bool subagent) {
+            if (row >= oc_bottom) return;
+            std::string session_name = session_name_from_key(s.key);
+            std::string channel = infer_session_channel(s);
+            std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
+            const int indent = subagent ? 10 : 2;
+            const std::string prefix = orchestrator ? "* orchestrator | " : (subagent ? "-> subagent | " : "- ");
+            print_segments(row++, indent, w - indent - 2, {
+                {10, prefix},
+                {color_for_value(channel), channel},
+                {10, " | "},
+                {color_for_value(session_name), session_name},
+                {10, " | "},
+                {color_for_value(s.model), s.model},
+                {10, " | "},
+                {color_for_value(provider_short), provider_short}
+            });
+        };
+
+        for (const auto& s : orchestrators) {
+            print_session(s, true, false);
+            for (const auto& sub : subagents) print_session(sub, false, true);
+            subagents.clear();
+        }
+        for (const auto& s : others) print_session(s, false, false);
+        for (const auto& s : subagents) print_session(s, false, true);
     }
 
     row = traffic_y + 1;
