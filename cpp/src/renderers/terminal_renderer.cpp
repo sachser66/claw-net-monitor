@@ -29,9 +29,9 @@ std::string format_duration_short(long long total_seconds) {
     long long m = (total_seconds % 3600) / 60;
     long long s = total_seconds % 60;
     std::ostringstream out;
-    if (h > 0) out << h << "h";
-    if (m > 0 || h > 0) out << m << "m";
-    out << s << "s";
+    out << std::setfill('0') << std::setw(2) << h << ':'
+        << std::setw(2) << m << ':'
+        << std::setw(2) << s;
     return out.str();
 }
 
