@@ -70,6 +70,7 @@ int main() {
     auto last = Clock::now();
     CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache;
     TriggerState trigger_state;
+    long long session_update_seq = 0;
     int tick = 0;
 
     while (true) {
@@ -92,6 +93,7 @@ int main() {
             openclaw_cache.text = exec_read("openclaw sessions --all-agents --json 2>/dev/null");
             openclaw_cache.fetched_at = now;
             openclaw_cache.ready = true;
+            session_update_seq++;
         }
         if (!gateway_cache.ready || now - gateway_cache.fetched_at > std::chrono::seconds(10)) {
             gateway_cache.text = exec_read("openclaw gateway status --json 2>/dev/null || true");
@@ -117,6 +119,7 @@ int main() {
         Snapshot snapshot;
         snapshot.interfaces = std::move(interfaces);
         snapshot.conn_states = parse_ss_summary(ss_cache.text);
+        snapshot.openclaw_session_seq = session_update_seq;
         snapshot.openclaw_session_count = parse_session_count(openclaw_cache.text);
         snapshot.openclaw_session_items = extract_sessions(openclaw_cache.text);
         merge_session_store_metadata(snapshot.openclaw_session_items, openclaw_cache.text);

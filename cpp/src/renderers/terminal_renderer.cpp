@@ -342,7 +342,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
 
     if (row < oc_bottom) row++;
     if (row < oc_bottom) {
-        std::string details = "Session details: update 5s | seq " + std::to_string(tick);
+        std::string details = "Session details: update 5s | seq " + std::to_string(snapshot.openclaw_session_seq);
         mvprintw(row++, 2, "%s", shorten(details, w - 4).c_str());
     }
     if (row < oc_bottom) {
