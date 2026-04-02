@@ -135,20 +135,29 @@ int color_for_channel(const std::string& channel) {
     return 1;
 }
 
-bool is_busy_timestamp(long long updated_at_ms) {
-    if (updated_at_ms <= 0) return false;
+long long age_ms_from_update(long long updated_at_ms) {
+    if (updated_at_ms <= 0) return -1;
     const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-    const long long age_ms = now_ms - updated_at_ms;
-    return age_ms >= 0 && age_ms <= 5LL * 60LL * 1000LL;
+    return now_ms - updated_at_ms;
 }
 
 std::string busy_label(long long updated_at_ms) {
-    return is_busy_timestamp(updated_at_ms) ? "busy" : "idle";
+    const long long age_ms = age_ms_from_update(updated_at_ms);
+    if (age_ms < 0) return "unknown";
+    if (age_ms <= 30LL * 1000LL) return "hot";
+    if (age_ms <= 2LL * 60LL * 1000LL) return "busy";
+    if (age_ms <= 10LL * 60LL * 1000LL) return "warm";
+    return "idle";
 }
 
 int busy_color(long long updated_at_ms) {
-    return is_busy_timestamp(updated_at_ms) ? 6 : 7;
+    const long long age_ms = age_ms_from_update(updated_at_ms);
+    if (age_ms < 0) return 7;
+    if (age_ms <= 30LL * 1000LL) return 9;
+    if (age_ms <= 2LL * 60LL * 1000LL) return 6;
+    if (age_ms <= 10LL * 60LL * 1000LL) return 3;
+    return 7;
 }
 
 bool is_transport_session_name(const std::string& name) {
