@@ -192,19 +192,19 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     print_segments(row++, 2, w - 4, {{1, "OpenClaw: "}, {4, "Config"}, {1, " + "}, {5, "Live-Sessions"}});
     if (row < oc_bottom) {
         print_segments(row++, 2, w - 4, {
-            {1, "Sessions: "},
+            {10, "Sessions: "},
             {color_for_value(std::to_string(snapshot.openclaw_session_count)), std::to_string(snapshot.openclaw_session_count)},
-            {1, " | Agents: "},
+            {10, " | Agents: "},
             {color_for_value(std::to_string(snapshot.openclaw_agents.size())), std::to_string(snapshot.openclaw_agents.size())}
         });
     }
     if (row < oc_bottom) {
         print_segments(row++, 2, w - 4, {
-            {1, "Gateway: "},
+            {10, "Gateway: "},
             {color_for_value(snapshot.gateway.mode.empty() ? "?" : snapshot.gateway.mode), snapshot.gateway.mode.empty() ? "?" : snapshot.gateway.mode},
-            {1, " / bind "},
+            {10, " / bind "},
             {color_for_value(snapshot.gateway.bind.empty() ? "?" : snapshot.gateway.bind), snapshot.gateway.bind.empty() ? "?" : snapshot.gateway.bind},
-            {1, " / port "},
+            {10, " / port "},
             {color_for_value(snapshot.gateway.port.empty() ? "?" : snapshot.gateway.port), snapshot.gateway.port.empty() ? "?" : snapshot.gateway.port}
         });
     }
@@ -236,9 +236,9 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             const std::string agent_id = a.id.empty() ? "-" : a.id;
             print_segments(row++, 2, w - 4, {
                 {color_for_value(agent_id), agent_id},
-                {1, " | name: "},
+                {10, " | name: "},
                 {color_for_value(a.name.empty() ? "-" : a.name), a.name.empty() ? "-" : a.name},
-                {1, " | sessions: "},
+                {10, " | sessions: "},
                 {color_for_value(std::to_string(agent_counts[a.id])), std::to_string(agent_counts[a.id])}
             });
         }
@@ -246,22 +246,22 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             const std::string model = a.model_primary.empty() ? "-" : a.model_primary;
             const std::string account_text = accounts.empty() ? "-" : accounts;
             print_segments(row++, 4, w - 6, {
-                {1, "model: "},
+                {10, "model: "},
                 {color_for_value(model), model},
-                {1, " | accounts: "},
+                {10, " | accounts: "},
                 {color_for_value(account_text), account_text}
             });
         }
         if (row < oc_bottom) {
             const std::string workspace = a.workspace.empty() ? "-" : a.workspace;
             print_segments(row++, 4, w - 6, {
-                {1, "workspace: "},
+                {10, "workspace: "},
                 {color_for_value(workspace), workspace}
             });
         }
         if (row < oc_bottom) {
             print_segments(row++, 4, w - 6, {
-                {1, "fallbacks: "},
+                {10, "fallbacks: "},
                 {color_for_value(fallback_summary), fallback_summary}
             });
         }
