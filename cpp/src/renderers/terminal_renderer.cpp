@@ -212,13 +212,11 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
 
     const int traffic_h = 7;
     const int flow_h = 5;
-    const int conn_h = 6;
-    const int oc_h = std::max(12, LINES - (2 + traffic_h + flow_h + conn_h) - 1);
+    const int oc_h = std::max(12, LINES - (2 + traffic_h + flow_h) - 1);
 
     const int oc_y = draw_box(oc_h, "OPENCLAW", 4);
     const int traffic_y = draw_box(traffic_h, "WO IST TRAFFIC?", 1);
-    const int flow_y = draw_box(flow_h, "PAKETFLUSS", 2);
-    const int conn_y = draw_box(std::max(5, LINES - y - 1), "VERBINDUNGEN", 3);
+    const int flow_y = draw_box(std::max(5, LINES - y - 1), "PAKETFLUSS", 2);
 
     std::map<std::string, int> agent_counts;
     for (const auto& s : snapshot.openclaw_session_items) agent_counts[s.agent]++;
@@ -322,14 +320,10 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
 
     if (row < oc_bottom) row++;
     if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten("Session details:", w - 4).c_str());
-    const int remaining_rows = std::max(0, oc_bottom - row);
-    const int page_size = std::max(1, remaining_rows);
-    const int total_pages = sessions.empty() ? 1 : static_cast<int>((sessions.size() + page_size - 1) / page_size);
-    const int page = sessions.empty() ? 0 : ((tick / 8) % total_pages);
-    const int start = page * page_size;
-    const int end = std::min<int>(start + page_size, sessions.size());
+    const int start = 0;
+    const int end = static_cast<int>(sessions.size());
     if (row < oc_bottom) {
-        std::string page_line = "Page " + std::to_string(page + 1) + "/" + std::to_string(total_pages) + " | sort: agent";
+        std::string page_line = "All sessions on one page | sort: agent";
         mvprintw(row++, 2, "%s", shorten(page_line, w - 4).c_str());
     }
     std::string current_agent;
@@ -383,16 +377,6 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     if (row < flow_bottom) mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Internet", "Host", tick, 14, internet_activity, internet_activity > 1.0 ? "gemessen via Internet/LAN-Ifaces" : "kein Aktivitaetswert"), w - 4).c_str());
     if (row < flow_bottom) mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Host", "Docker", tick + 4, 12, docker_activity, docker_activity > 1.0 ? "gemessen via docker/br-Ifaces" : "kein Aktivitaetswert"), w - 4).c_str());
     if (row < flow_bottom) mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Localhost", "OpenClaw", tick + 2, 10, openclaw_activity, snapshot.openclaw_socket_activity ? "openclaw Socket auf localhost" : "kein belegter openclaw localhost-Socket"), w - 4).c_str());
-    attroff(A_DIM);
-
-    row = conn_y + 1;
-    const int conn_bottom = conn_y + conn_h - 1;
-    attron(A_DIM);
-    mvprintw(row++, 2, "%s", shorten("Welche Verbindungsarten sieht der Host gerade?", w - 4).c_str());
-    for (std::size_t i = 0; i < snapshot.conn_states.size() && row < conn_bottom; ++i) {
-        std::string line = snapshot.conn_states[i].first + ": " + std::to_string(snapshot.conn_states[i].second);
-        mvprintw(row++, 2, "%s", shorten(line, w - 4).c_str());
-    }
     attroff(A_DIM);
 
 }
