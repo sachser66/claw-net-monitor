@@ -50,6 +50,22 @@ std::string make_real_flow_line(const std::string& from, const std::string& to, 
     return from + " [" + path + "] " + to + " | " + evidence;
 }
 
+void print_segments(int y, int x, int width, const std::vector<std::pair<int, std::string>>& segments) {
+    if (width <= 0) return;
+    int col = x;
+    int remaining = width;
+    for (const auto& seg : segments) {
+        if (remaining <= 0) break;
+        const auto text = shorten(seg.second, remaining);
+        attron(COLOR_PAIR(seg.first));
+        mvaddnstr(y, col, text.c_str(), remaining);
+        attroff(COLOR_PAIR(seg.first));
+        col += static_cast<int>(text.size());
+        remaining -= static_cast<int>(text.size());
+    }
+}
+
+
 int color_for_status(const std::string& status) {
     if (status == "running") return 6;
     if (status == "idle") return 7;
@@ -162,15 +178,40 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
                 fallback_summary += " (+" + std::to_string(a.model_fallbacks.size() - 1) + ")";
             }
         }
-        std::string line1 = a.id + " | name: " + (a.name.empty() ? "-" : a.name) + " | sessions: " + std::to_string(agent_counts[a.id]);
-        std::string line2 = "model: " + (a.model_primary.empty() ? "-" : a.model_primary) + " | accounts: " + (accounts.empty() ? "-" : accounts);
-        std::string line3 = "workspace: " + (a.workspace.empty() ? "-" : a.workspace);
-        std::string line4 = "fallbacks: " + fallback_summary;
-        if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten(line1, w - 4).c_str());
-        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten(line2, w - 6).c_str());
-        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten(line3, w - 6).c_str());
-        if (row < oc_bottom) mvprintw(row++, 4, "%s", shorten(line4, w - 6).c_str());
-        if (row < oc_bottom && i + 1 < snapshot.openclaw_agents.size()) mvhline(row++, 2, '-', std::max(0, w - 4));
+        if (row < oc_bottom) {
+            print_segments(row++, 2, w - 4, {
+                {4, a.id.empty() ? "-" : a.id},
+                {1, " | name: "},
+                {5, a.name.empty() ? "-" : a.name},
+                {1, " | sessions: "},
+                {3, std::to_string(agent_counts[a.id])}
+            });
+        }
+        if (row < oc_bottom) {
+            print_segments(row++, 4, w - 6, {
+                {1, "model: "},
+                {8, a.model_primary.empty() ? "-" : a.model_primary},
+                {1, " | accounts: "},
+                {2, accounts.empty() ? "-" : accounts}
+            });
+        }
+        if (row < oc_bottom) {
+            print_segments(row++, 4, w - 6, {
+                {1, "workspace: "},
+                {5, a.workspace.empty() ? "-" : a.workspace}
+            });
+        }
+        if (row < oc_bottom) {
+            print_segments(row++, 4, w - 6, {
+                {1, "fallbacks: "},
+                {3, fallback_summary}
+            });
+        }
+        if (row < oc_bottom && i + 1 < snapshot.openclaw_agents.size()) {
+            attron(COLOR_PAIR(1));
+            mvhline(row++, 2, '-', std::max(0, w - 4));
+            attroff(COLOR_PAIR(1));
+        }
     }
 
     std::vector<OpenClawSession> sessions = snapshot.openclaw_session_items;
