@@ -145,18 +145,18 @@ long long age_ms_from_update(long long updated_at_ms) {
 std::string busy_label(long long updated_at_ms) {
     const long long age_ms = age_ms_from_update(updated_at_ms);
     if (age_ms < 0) return "unknown";
-    if (age_ms <= 30LL * 1000LL) return "hot";
-    if (age_ms <= 2LL * 60LL * 1000LL) return "busy";
-    if (age_ms <= 10LL * 60LL * 1000LL) return "warm";
+    if (age_ms <= 5LL * 60LL * 1000LL) return "session-hot";
+    if (age_ms <= 15LL * 60LL * 1000LL) return "busy";
+    if (age_ms <= 60LL * 60LL * 1000LL) return "warm";
     return "idle";
 }
 
 int busy_color(long long updated_at_ms) {
     const long long age_ms = age_ms_from_update(updated_at_ms);
     if (age_ms < 0) return 7;
-    if (age_ms <= 30LL * 1000LL) return 9;
-    if (age_ms <= 2LL * 60LL * 1000LL) return 6;
-    if (age_ms <= 10LL * 60LL * 1000LL) return 3;
+    if (age_ms <= 5LL * 60LL * 1000LL) return 9;
+    if (age_ms <= 15LL * 60LL * 1000LL) return 6;
+    if (age_ms <= 60LL * 60LL * 1000LL) return 3;
     return 7;
 }
 
