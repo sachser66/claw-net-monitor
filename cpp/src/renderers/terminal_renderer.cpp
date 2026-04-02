@@ -276,6 +276,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         return a.key < b.key;
     });
 
+    if (row < oc_bottom) row++;
     if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten("Session details:", w - 4).c_str());
     const int remaining_rows = std::max(0, oc_bottom - row);
     const int page_size = std::max(1, remaining_rows);
