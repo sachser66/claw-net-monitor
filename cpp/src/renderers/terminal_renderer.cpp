@@ -247,31 +247,29 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     const int oc_bottom = oc_y + oc_h - 1;
     print_segments(row++, 2, w - 4, {{1, "OpenClaw: "}, {4, "Config"}, {1, " + "}, {5, "Live-Sessions"}});
     if (row < oc_bottom) {
-        print_segments(row++, 2, w - 4, {
+        std::vector<std::pair<int, std::string>> segments = {
             {10, "Sessions: "},
             {color_for_value(std::to_string(snapshot.openclaw_session_count)), std::to_string(snapshot.openclaw_session_count)},
             {10, " | Agents: "},
-            {color_for_value(std::to_string(snapshot.openclaw_agents.size())), std::to_string(snapshot.openclaw_agents.size())}
-        });
-    }
-    if (row < oc_bottom) {
-        print_segments(row++, 2, w - 4, {
-            {10, "Gateway: "},
+            {color_for_value(std::to_string(snapshot.openclaw_agents.size())), std::to_string(snapshot.openclaw_agents.size())},
+            {10, " | Gateway: "},
             {color_for_value(snapshot.gateway.mode.empty() ? "?" : snapshot.gateway.mode), snapshot.gateway.mode.empty() ? "?" : snapshot.gateway.mode},
             {10, " / bind "},
             {color_for_value(snapshot.gateway.bind.empty() ? "?" : snapshot.gateway.bind), snapshot.gateway.bind.empty() ? "?" : snapshot.gateway.bind},
             {10, " / port "},
             {color_for_value(snapshot.gateway.port.empty() ? "?" : snapshot.gateway.port), snapshot.gateway.port.empty() ? "?" : snapshot.gateway.port}
-        });
-    }
-    if (!snapshot.trigger_events.empty() && row < oc_bottom) {
-        std::string ev = "Events: ";
-        for (std::size_t i = 0; i < snapshot.trigger_events.size() && i < 4; ++i) {
-            if (i) ev += ", ";
-            ev += snapshot.trigger_events[i];
+        };
+        if (!snapshot.trigger_events.empty()) {
+            std::string ev;
+            for (std::size_t i = 0; i < snapshot.trigger_events.size() && i < 4; ++i) {
+                if (i) ev += ", ";
+                ev += snapshot.trigger_events[i];
+            }
+            segments.push_back({10, " | Events: "});
+            segments.push_back({color_for_value(ev), ev});
         }
-        mvprintw(row++, 2, "%s", shorten(ev, w - 4).c_str());
-        if (row < oc_bottom) row++;
+        print_segments(row++, 2, w - 4, segments);
+        if (!snapshot.trigger_events.empty() && row < oc_bottom) row++;
     }
 
     if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten("Agents from openclaw.json:", w - 4).c_str());
