@@ -1,6 +1,7 @@
 #include "terminal_renderer.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <iomanip>
 #include <map>
 #include <sstream>
@@ -134,6 +135,22 @@ int color_for_channel(const std::string& channel) {
     return 1;
 }
 
+bool is_busy_timestamp(long long updated_at_ms) {
+    if (updated_at_ms <= 0) return false;
+    const auto now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    const long long age_ms = now_ms - updated_at_ms;
+    return age_ms >= 0 && age_ms <= 5LL * 60LL * 1000LL;
+}
+
+std::string busy_label(long long updated_at_ms) {
+    return is_busy_timestamp(updated_at_ms) ? "busy" : "idle";
+}
+
+int busy_color(long long updated_at_ms) {
+    return is_busy_timestamp(updated_at_ms) ? 6 : 7;
+}
+
 bool is_transport_session_name(const std::string& name) {
     return name.rfind("telegram:", 0) == 0 ||
            name.rfind("tui-", 0) == 0 ||
@@ -264,6 +281,10 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
                 fallback_summary += a.model_fallbacks[j];
             }
         }
+        long long latest_agent_update = 0;
+        for (const auto& s : snapshot.openclaw_session_items) {
+            if (s.agent == a.id && s.updated_at > latest_agent_update) latest_agent_update = s.updated_at;
+        }
         if (row < oc_bottom) {
             const std::string agent_id = a.id.empty() ? "-" : a.id;
             print_segments(row++, 2, w - 4, {
@@ -271,7 +292,9 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
                 {10, " | name: "},
                 {color_for_value(a.name.empty() ? "-" : a.name), a.name.empty() ? "-" : a.name},
                 {10, " | sessions: "},
-                {color_for_value(std::to_string(agent_counts[a.id])), std::to_string(agent_counts[a.id])}
+                {color_for_value(std::to_string(agent_counts[a.id])), std::to_string(agent_counts[a.id])},
+                {10, " | "},
+                {busy_color(latest_agent_update), busy_label(latest_agent_update)}
             });
         }
         if (row < oc_bottom) {
@@ -357,7 +380,9 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
                 {10, " | "},
                 {color_for_value(s.model), s.model},
                 {10, " | "},
-                {color_for_value(provider_short), provider_short}
+                {color_for_value(provider_short), provider_short},
+                {10, " | "},
+                {busy_color(s.updated_at), busy_label(s.updated_at)}
             });
         };
 
