@@ -65,6 +65,13 @@ void print_segments(int y, int x, int width, const std::vector<std::pair<int, st
     }
 }
 
+int color_for_value(const std::string& value) {
+    if (value.empty() || value == "-") return 7;
+    static const int palette[] = {2, 3, 4, 5, 6, 8, 9};
+    std::size_t h = std::hash<std::string>{}(value);
+    return palette[h % (sizeof(palette) / sizeof(palette[0]))];
+}
+
 
 int color_for_status(const std::string& status) {
     if (status == "running") return 6;
@@ -151,9 +158,25 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
 
     int row = oc_y + 1;
     const int oc_bottom = oc_y + oc_h - 1;
-    mvprintw(row++, 2, "%s", shorten("OpenClaw: Config + Live-Sessions", w - 4).c_str());
-    if (row < oc_bottom) mvprintw(row++, 2, "Sessions: %d | Agents: %d", snapshot.openclaw_session_count, static_cast<int>(snapshot.openclaw_agents.size()));
-    if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten((std::string("Gateway: ") + (snapshot.gateway.mode.empty() ? "?" : snapshot.gateway.mode) + " / bind " + (snapshot.gateway.bind.empty() ? "?" : snapshot.gateway.bind) + " / port " + (snapshot.gateway.port.empty() ? "?" : snapshot.gateway.port)).c_str(), w - 4).c_str());
+    print_segments(row++, 2, w - 4, {{1, "OpenClaw: "}, {4, "Config"}, {1, " + "}, {5, "Live-Sessions"}});
+    if (row < oc_bottom) {
+        print_segments(row++, 2, w - 4, {
+            {1, "Sessions: "},
+            {color_for_value(std::to_string(snapshot.openclaw_session_count)), std::to_string(snapshot.openclaw_session_count)},
+            {1, " | Agents: "},
+            {color_for_value(std::to_string(snapshot.openclaw_agents.size())), std::to_string(snapshot.openclaw_agents.size())}
+        });
+    }
+    if (row < oc_bottom) {
+        print_segments(row++, 2, w - 4, {
+            {1, "Gateway: "},
+            {color_for_value(snapshot.gateway.mode.empty() ? "?" : snapshot.gateway.mode), snapshot.gateway.mode.empty() ? "?" : snapshot.gateway.mode},
+            {1, " / bind "},
+            {color_for_value(snapshot.gateway.bind.empty() ? "?" : snapshot.gateway.bind), snapshot.gateway.bind.empty() ? "?" : snapshot.gateway.bind},
+            {1, " / port "},
+            {color_for_value(snapshot.gateway.port.empty() ? "?" : snapshot.gateway.port), snapshot.gateway.port.empty() ? "?" : snapshot.gateway.port}
+        });
+    }
     if (!snapshot.trigger_events.empty() && row < oc_bottom) {
         std::string ev = "Events: ";
         for (std::size_t i = 0; i < snapshot.trigger_events.size() && i < 4; ++i) {
@@ -179,32 +202,36 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             }
         }
         if (row < oc_bottom) {
+            const std::string agent_id = a.id.empty() ? "-" : a.id;
             print_segments(row++, 2, w - 4, {
-                {4, a.id.empty() ? "-" : a.id},
+                {color_for_value(agent_id), agent_id},
                 {1, " | name: "},
-                {5, a.name.empty() ? "-" : a.name},
+                {color_for_value(a.name.empty() ? "-" : a.name), a.name.empty() ? "-" : a.name},
                 {1, " | sessions: "},
-                {3, std::to_string(agent_counts[a.id])}
+                {color_for_value(std::to_string(agent_counts[a.id])), std::to_string(agent_counts[a.id])}
             });
         }
         if (row < oc_bottom) {
+            const std::string model = a.model_primary.empty() ? "-" : a.model_primary;
+            const std::string account_text = accounts.empty() ? "-" : accounts;
             print_segments(row++, 4, w - 6, {
                 {1, "model: "},
-                {8, a.model_primary.empty() ? "-" : a.model_primary},
+                {color_for_value(model), model},
                 {1, " | accounts: "},
-                {2, accounts.empty() ? "-" : accounts}
+                {color_for_value(account_text), account_text}
             });
         }
         if (row < oc_bottom) {
+            const std::string workspace = a.workspace.empty() ? "-" : a.workspace;
             print_segments(row++, 4, w - 6, {
                 {1, "workspace: "},
-                {5, a.workspace.empty() ? "-" : a.workspace}
+                {color_for_value(workspace), workspace}
             });
         }
         if (row < oc_bottom) {
             print_segments(row++, 4, w - 6, {
                 {1, "fallbacks: "},
-                {3, fallback_summary}
+                {color_for_value(fallback_summary), fallback_summary}
             });
         }
         if (row < oc_bottom && i + 1 < snapshot.openclaw_agents.size()) {
@@ -236,19 +263,30 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         const auto& s = sessions[i];
         if (s.agent != current_agent && row < oc_bottom) {
             current_agent = s.agent;
-            std::string header = "[" + current_agent + "] (" + std::to_string(agent_counts[current_agent]) + ")";
-            attron(A_BOLD | COLOR_PAIR(4));
-            mvprintw(row++, 2, "%s", shorten(header, w - 4).c_str());
-            attroff(A_BOLD | COLOR_PAIR(4));
+            attron(A_BOLD);
+            print_segments(row++, 2, w - 4, {
+                {1, "["},
+                {color_for_value(current_agent), current_agent},
+                {1, "] ("},
+                {color_for_value(std::to_string(agent_counts[current_agent])), std::to_string(agent_counts[current_agent])},
+                {1, ")"}
+            });
+            attroff(A_BOLD);
         }
         if (row >= oc_bottom) break;
         std::string session_name = session_name_from_key(s.key);
         std::string channel = infer_session_channel(s);
         std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
-        std::string line = "- " + channel + " | " + session_name + " | " + s.model + " | " + provider_short;
-        attron(COLOR_PAIR(color_for_channel(channel)));
-        mvprintw(row++, 2, "%s", shorten(line, w - 4).c_str());
-        attroff(COLOR_PAIR(color_for_channel(channel)));
+        print_segments(row++, 2, w - 4, {
+            {1, "- "},
+            {color_for_value(channel), channel},
+            {1, " | "},
+            {color_for_value(session_name), session_name},
+            {1, " | "},
+            {color_for_value(s.model), s.model},
+            {1, " | "},
+            {color_for_value(provider_short), provider_short}
+        });
     }
 
     row = traffic_y + 1;
