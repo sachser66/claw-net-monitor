@@ -134,19 +134,34 @@ int color_for_channel(const std::string& channel) {
     return 1;
 }
 
-bool is_orchestrator_session(const OpenClawSession& s) {
-    const std::string name = session_name_from_key(s.key);
-    return name == "main" || name == s.agent;
+bool is_transport_session_name(const std::string& name) {
+    return name.rfind("telegram:", 0) == 0 ||
+           name.rfind("tui-", 0) == 0 ||
+           name.rfind("webchat", 0) == 0 ||
+           name.rfind("discord", 0) == 0 ||
+           name.rfind("signal", 0) == 0 ||
+           name.rfind("whatsapp", 0) == 0;
 }
 
 bool is_subagent_session(const OpenClawSession& s) {
     const std::string name = session_name_from_key(s.key);
-    const std::string channel = infer_session_channel(s);
-    if (is_orchestrator_session(s)) return false;
-    if (channel == "telegram" || channel == "tui" || channel == "webchat" || channel == "discord" || channel == "signal" || channel == "whatsapp") {
-        return false;
+    return name.rfind("subagent:", 0) == 0;
+}
+
+bool is_orchestrator_session(const OpenClawSession& s, const std::vector<OpenClawSession>& all_sessions) {
+    const std::string name = session_name_from_key(s.key);
+    if (name == "main" || name == s.agent) return true;
+    if (is_subagent_session(s)) return false;
+    if (is_transport_session_name(name)) return false;
+
+    bool agent_has_subagents = false;
+    for (const auto& other : all_sessions) {
+        if (other.agent == s.agent && is_subagent_session(other)) {
+            agent_has_subagents = true;
+            break;
+        }
     }
-    return name.find(':') == std::string::npos;
+    return agent_has_subagents;
 }
 
 void box(int y, int x, int h, int w, const std::string& title, int color_pair) {
@@ -296,8 +311,12 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     std::vector<OpenClawSession> sessions = snapshot.openclaw_session_items;
     std::sort(sessions.begin(), sessions.end(), [](const OpenClawSession& a, const OpenClawSession& b) {
         if (a.agent != b.agent) return a.agent < b.agent;
-        if (is_orchestrator_session(a) != is_orchestrator_session(b)) return is_orchestrator_session(a) > is_orchestrator_session(b);
-        if (is_subagent_session(a) != is_subagent_session(b)) return is_subagent_session(a) > is_subagent_session(b);
+        const bool a_orch = is_orchestrator_session(a, sessions);
+        const bool b_orch = is_orchestrator_session(b, sessions);
+        if (a_orch != b_orch) return a_orch > b_orch;
+        const bool a_sub = is_subagent_session(a);
+        const bool b_sub = is_subagent_session(b);
+        if (a_sub != b_sub) return a_sub > b_sub;
         return a.key < b.key;
     });
 
@@ -332,7 +351,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         std::string session_name = session_name_from_key(s.key);
         std::string channel = infer_session_channel(s);
         std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
-        const bool orchestrator = is_orchestrator_session(s);
+        const bool orchestrator = is_orchestrator_session(s, sessions);
         const bool subagent = is_subagent_session(s);
         const int indent = subagent ? 10 : 2;
         const std::string prefix = orchestrator ? "* orchestrator | " : (subagent ? "-> subagent | " : "- ");
