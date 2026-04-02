@@ -23,6 +23,9 @@ struct OpenClawSession {
     std::string model_provider;
     std::string last_channel;
     std::string provider;
+    std::string spawned_by;
+    std::string subagent_role;
+    std::string label;
     long long updated_at = 0;
 };
 

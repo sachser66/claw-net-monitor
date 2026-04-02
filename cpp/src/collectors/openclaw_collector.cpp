@@ -1,10 +1,43 @@
 #include "openclaw_collector.hpp"
 
 #include <algorithm>
+#include <unordered_map>
 
+#include "../util/exec.hpp"
 #include "../util/json_vendor.hpp"
 
 using nlohmann::json;
+
+
+namespace {
+struct SessionStoreMeta {
+    std::string spawned_by;
+    std::string subagent_role;
+    std::string label;
+    std::string last_channel;
+    std::string provider;
+};
+
+std::unordered_map<std::string, SessionStoreMeta> parse_session_store_metadata(const std::string& text) {
+    std::unordered_map<std::string, SessionStoreMeta> out;
+    json root = json::parse(text, nullptr, false);
+    if (root.is_discarded() || !root.is_object()) return out;
+
+    for (auto it = root.begin(); it != root.end(); ++it) {
+        if (!it.value().is_object()) continue;
+        const std::string key = it.key();
+        if (key.rfind("agent:", 0) != 0) continue;
+        SessionStoreMeta meta;
+        meta.spawned_by = it.value().value("spawnedBy", "");
+        meta.subagent_role = it.value().value("subagentRole", "");
+        meta.label = it.value().value("label", "");
+        meta.last_channel = it.value().value("lastChannel", "");
+        meta.provider = it.value().value("channel", "");
+        out[key] = std::move(meta);
+    }
+    return out;
+}
+}
 
 std::string infer_session_channel(const OpenClawSession& s) {
     auto has = [&](const std::string& needle) {
@@ -39,6 +72,9 @@ std::vector<OpenClawSession> extract_sessions(const std::string& text) {
         s.model_provider = item.value("modelProvider", "");
         s.last_channel = item.value("lastChannel", "");
         s.provider = item.value("provider", "");
+        s.spawned_by = item.value("spawnedBy", "");
+        s.subagent_role = item.value("subagentRole", "");
+        s.label = item.value("label", "");
         s.updated_at = item.value("updatedAt", 0LL);
 
         if (s.agent.empty() && s.key.rfind("agent:", 0) == 0) {
@@ -179,4 +215,28 @@ std::string session_name_from_key(const std::string& key) {
     auto second = key.find(':', first + 1);
     if (second == std::string::npos || second + 1 >= key.size()) return key;
     return key.substr(second + 1);
+}
+
+
+void merge_session_store_metadata(std::vector<OpenClawSession>& sessions, const std::string& sessions_json) {
+    json root = json::parse(sessions_json, nullptr, false);
+    if (root.is_discarded() || !root.contains("stores") || !root["stores"].is_array()) return;
+
+    std::unordered_map<std::string, SessionStoreMeta> metadata;
+    for (const auto& store : root["stores"]) {
+        const std::string path = store.value("path", "");
+        if (path.empty()) continue;
+        auto parsed = parse_session_store_metadata(read_file_text(path));
+        metadata.insert(parsed.begin(), parsed.end());
+    }
+
+    for (auto& s : sessions) {
+        auto it = metadata.find(s.key);
+        if (it == metadata.end()) continue;
+        if (s.spawned_by.empty()) s.spawned_by = it->second.spawned_by;
+        if (s.subagent_role.empty()) s.subagent_role = it->second.subagent_role;
+        if (s.label.empty()) s.label = it->second.label;
+        if (s.last_channel.empty()) s.last_channel = it->second.last_channel;
+        if (s.provider.empty()) s.provider = it->second.provider;
+    }
 }

@@ -118,6 +118,7 @@ int main() {
         snapshot.conn_states = parse_ss_summary(ss_cache.text);
         snapshot.openclaw_session_count = parse_session_count(openclaw_cache.text);
         snapshot.openclaw_session_items = extract_sessions(openclaw_cache.text);
+        merge_session_store_metadata(snapshot.openclaw_session_items, openclaw_cache.text);
         snapshot.openclaw_agents = extract_agent_configs(config_cache.text);
         snapshot.gateway = extract_gateway_info(gateway_cache.text);
         if (snapshot.openclaw_agents.empty() && !config_cache.text.empty()) {
