@@ -69,6 +69,7 @@ int main() {
 
     const auto app_started_at = Clock::now();
     auto last = Clock::now();
+    auto next_tick = Clock::now();
     CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache;
     TriggerState trigger_state;
     long long session_update_seq = 0;
@@ -147,7 +148,8 @@ int main() {
             refresh();
         }
         tick++;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        next_tick += std::chrono::milliseconds(500);
+        std::this_thread::sleep_until(next_tick);
     }
 
     http_server_stop();
