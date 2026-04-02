@@ -118,11 +118,11 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         return top;
     };
 
-    const int traffic_y = draw_box(8, "WO IST TRAFFIC?", 1);
-    const int flow_y = draw_box(6, "PAKETFLUSS", 2);
-    const int oc_y = draw_box(std::max(12, LINES - 30), "OPENCLAW", 4);
-    const int conn_y = draw_box(7, "VERBINDUNGEN", 3);
-    const int docker_y = draw_box(std::max(6, LINES - y - 1), "DOCKER", 5);
+    const int traffic_y = draw_box(7, "WO IST TRAFFIC?", 1);
+    const int flow_y = draw_box(5, "PAKETFLUSS", 2);
+    const int conn_y = draw_box(6, "VERBINDUNGEN", 3);
+    const int docker_y = draw_box(6, "DOCKER", 5);
+    const int oc_y = draw_box(std::max(12, LINES - y - 1), "OPENCLAW", 4);
 
     int row = traffic_y + 1;
     mvprintw(row++, 2, "%s", shorten("Gemessene Netzgruppen nach Aktivitaet", w - 4).c_str());
@@ -137,10 +137,11 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     mvprintw(row++, 2, "%s", shorten(make_real_flow_line("Localhost", "OpenClaw", tick + 2, 10, openclaw_activity, snapshot.openclaw_socket_activity ? "openclaw Socket auf localhost" : "kein belegter openclaw localhost-Socket"), w - 4).c_str());
 
     row = oc_y + 1;
+    const int oc_bottom = LINES - 2;
     mvprintw(row++, 2, "%s", shorten("OpenClaw: Config + Live-Sessions", w - 4).c_str());
     mvprintw(row++, 2, "Sessions: %d | Agents: %d", snapshot.openclaw_session_count, static_cast<int>(snapshot.openclaw_agents.size()));
     mvprintw(row++, 2, "%s", shorten((std::string("Gateway: ") + (snapshot.gateway.mode.empty() ? "?" : snapshot.gateway.mode) + " / bind " + (snapshot.gateway.bind.empty() ? "?" : snapshot.gateway.bind) + " / port " + (snapshot.gateway.port.empty() ? "?" : snapshot.gateway.port)).c_str(), w - 4).c_str());
-    if (!snapshot.trigger_events.empty() && row < oc_y + std::max(10, LINES - 30) - 1) {
+    if (!snapshot.trigger_events.empty() && row < oc_bottom) {
         std::string ev = "Events: ";
         for (std::size_t i = 0; i < snapshot.trigger_events.size() && i < 4; ++i) {
             if (i) ev += ", ";
@@ -148,40 +149,54 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         }
         mvprintw(row++, 2, "%s", shorten(ev, w - 4).c_str());
     }
-    if (row < oc_y + std::max(10, LINES - 30) - 1) {
-        mvprintw(row++, 2, "%s", shorten("Configured agents:", w - 4).c_str());
-    }
-    for (std::size_t i = 0; i < snapshot.openclaw_agents.size() && row < oc_y + std::max(10, LINES - 30) - 1; ++i) {
+
+    std::map<std::string, int> agent_counts;
+    for (const auto& s : snapshot.openclaw_session_items) agent_counts[s.agent]++;
+
+    if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten("Agents:", w - 4).c_str());
+    for (std::size_t i = 0; i < snapshot.openclaw_agents.size() && row < oc_bottom; ++i) {
         const auto& a = snapshot.openclaw_agents[i];
         std::string accounts;
         for (std::size_t j = 0; j < a.bound_accounts.size() && j < 2; ++j) {
             if (!accounts.empty()) accounts += ",";
             accounts += a.bound_accounts[j];
         }
-        std::string fallback = a.model_fallbacks.empty() ? "-" : a.model_fallbacks.front();
-        std::string line = (a.emoji.empty() ? "" : a.emoji + " ") + a.id + " | " + (a.model_primary.empty() ? "-" : a.model_primary) + " | fb: " + fallback + " | acct: " + (accounts.empty() ? "-" : accounts);
+        std::string line = (a.emoji.empty() ? "" : a.emoji + " ") + a.id + " [sessions " + std::to_string(agent_counts[a.id]) + "] | " + (a.model_primary.empty() ? "-" : a.model_primary) + " | acct: " + (accounts.empty() ? "-" : accounts);
         mvprintw(row++, 2, "%s", shorten(line, w - 4).c_str());
     }
-    if (row < oc_y + std::max(10, LINES - 30) - 1) {
-        mvprintw(row++, 2, "%s", shorten("Sessions gruppiert nach Agent:", w - 4).c_str());
+
+    std::vector<OpenClawSession> sessions = snapshot.openclaw_session_items;
+    std::sort(sessions.begin(), sessions.end(), [](const OpenClawSession& a, const OpenClawSession& b) {
+        if (a.agent != b.agent) return a.agent < b.agent;
+        return a.key < b.key;
+    });
+
+    if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten("Session details:", w - 4).c_str());
+    const int remaining_rows = std::max(0, oc_bottom - row);
+    const int page_size = std::max(1, remaining_rows);
+    const int total_pages = sessions.empty() ? 1 : static_cast<int>((sessions.size() + page_size - 1) / page_size);
+    const int page = sessions.empty() ? 0 : ((tick / 8) % total_pages);
+    const int start = page * page_size;
+    const int end = std::min<int>(start + page_size, sessions.size());
+    if (row < oc_bottom) {
+        std::string page_line = "Page " + std::to_string(page + 1) + "/" + std::to_string(total_pages) + " | sort: agent";
+        mvprintw(row++, 2, "%s", shorten(page_line, w - 4).c_str());
     }
-    std::map<std::string, int> agent_counts;
-    for (const auto& s : snapshot.openclaw_session_items) agent_counts[s.agent]++;
     std::string current_agent;
-    for (std::size_t i = 0; i < snapshot.openclaw_session_items.size() && row < oc_y + std::max(10, LINES - 30) - 1; ++i) {
-        const auto& s = snapshot.openclaw_session_items[i];
+    for (int i = start; i < end && row < oc_bottom; ++i) {
+        const auto& s = sessions[i];
         if (s.agent != current_agent) {
             current_agent = s.agent;
             std::string header = "[" + current_agent + "] (" + std::to_string(agent_counts[current_agent]) + ")";
             attron(A_BOLD | COLOR_PAIR(4));
             mvprintw(row++, 2, "%s", shorten(header, w - 4).c_str());
             attroff(A_BOLD | COLOR_PAIR(4));
-            if (row >= oc_y + std::max(10, LINES - 30) - 1) break;
+            if (row >= oc_bottom) break;
         }
         std::string session_name = session_name_from_key(s.key);
         std::string channel = infer_session_channel(s);
         std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
-        std::string line = "- " + s.status + " | " + s.kind + " | " + channel + " | " + session_name + " | " + s.model + " | " + provider_short;
+        std::string line = "- " + channel + " | " + session_name + " | " + s.model + " | " + provider_short;
         mvprintw(row++, 2, "%s", shorten(line, w - 4).c_str());
     }
 
