@@ -10,6 +10,7 @@ struct Snapshot {
     std::vector<InterfaceSample> interfaces;
     std::vector<std::pair<std::string, int>> conn_states;
     std::vector<OpenClawSession> openclaw_session_items;
+    std::vector<AgentSessionHierarchy> openclaw_session_hierarchy;
     std::vector<OpenClawAgentConfig> openclaw_agents;
     std::vector<OpenClawModelInfo> openclaw_models;
     std::vector<OpenClawChannelInfo> openclaw_channels;

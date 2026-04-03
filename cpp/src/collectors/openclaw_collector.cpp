@@ -50,23 +50,6 @@ std::unordered_map<std::string, SessionStoreMeta> parse_session_store_metadata(c
 }
 }
 
-std::string infer_session_channel(const OpenClawSession& s) {
-    auto has = [&](const std::string& needle) {
-        return s.key.find(needle) != std::string::npos ||
-               s.display.find(needle) != std::string::npos ||
-               s.last_channel.find(needle) != std::string::npos ||
-               s.provider.find(needle) != std::string::npos;
-    };
-    if (has("telegram")) return "telegram";
-    if (has("whatsapp")) return "whatsapp";
-    if (has("discord")) return "discord";
-    if (has("signal")) return "signal";
-    if (has("webchat")) return "webchat";
-    if (has("tui")) return "tui";
-    if (has("web")) return "webchat";
-    return "tui";
-}
-
 std::vector<OpenClawSession> extract_sessions(const std::string& text) {
     std::vector<OpenClawSession> items;
     json root = json::parse(text, nullptr, false);
@@ -219,15 +202,6 @@ int parse_session_count(const std::string& text) {
     if (root.contains("sessions") && root["sessions"].is_array()) return static_cast<int>(root["sessions"].size());
     return 0;
 }
-
-std::string session_name_from_key(const std::string& key) {
-    if (key.rfind("agent:", 0) != 0) return key;
-    auto first = key.find(':');
-    auto second = key.find(':', first + 1);
-    if (second == std::string::npos || second + 1 >= key.size()) return key;
-    return key.substr(second + 1);
-}
-
 
 void merge_session_store_metadata(std::vector<OpenClawSession>& sessions, const std::string& sessions_json) {
     json root = json::parse(sessions_json, nullptr, false);

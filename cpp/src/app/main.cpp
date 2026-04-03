@@ -10,6 +10,7 @@
 #include "../collectors/openclaw_collector.hpp"
 #include "../core/snapshot.hpp"
 #include "../core/state_json.hpp"
+#include "../core/session_hierarchy.hpp"
 #include "../core/triggers.hpp"
 #include "../renderers/terminal_renderer.hpp"
 #include "../util/exec.hpp"
@@ -136,6 +137,7 @@ int main() {
         snapshot.openclaw_session_count = parse_session_count(openclaw_cache.text);
         snapshot.openclaw_session_items = extract_sessions(openclaw_cache.text);
         merge_session_store_metadata(snapshot.openclaw_session_items, openclaw_cache.text);
+        snapshot.openclaw_session_hierarchy = build_session_hierarchy(snapshot.openclaw_session_items);
         snapshot.openclaw_agents = extract_agent_configs(config_cache.text);
         snapshot.openclaw_models = extract_models(models_cache.text);
         snapshot.openclaw_channels = extract_channels(channels_cache.text);

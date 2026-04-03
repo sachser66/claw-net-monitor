@@ -10,7 +10,7 @@
 #include <ncurses.h>
 
 #include "../collectors/network_collector.hpp"
-#include "../collectors/openclaw_collector.hpp"
+#include "../core/session_hierarchy.hpp"
 
 std::string fmt_rate(double value) {
     static const char* units[] = {"B/s", "KB/s", "MB/s", "GB/s"};
@@ -174,32 +174,6 @@ int busy_color(long long updated_at_ms) {
     if (age_ms <= 15LL * 60LL * 1000LL) return 6;
     if (age_ms <= 60LL * 60LL * 1000LL) return 3;
     return 7;
-}
-
-bool is_transport_session_name(const std::string& name) {
-    return name.rfind("telegram:", 0) == 0 ||
-           name.rfind("tui-", 0) == 0 ||
-           name.rfind("webchat", 0) == 0 ||
-           name.rfind("discord", 0) == 0 ||
-           name.rfind("signal", 0) == 0 ||
-           name.rfind("whatsapp", 0) == 0;
-}
-
-bool is_subagent_session(const OpenClawSession& s) {
-    const std::string name = session_name_from_key(s.key);
-    return name.rfind("subagent:", 0) == 0 || !s.spawned_by.empty();
-}
-
-bool is_orchestrator_session(const OpenClawSession& s, const std::vector<OpenClawSession>& all_sessions) {
-    const std::string name = session_name_from_key(s.key);
-    if (name == "main" || name == s.agent) return true;
-    if (is_subagent_session(s)) return false;
-    if (is_transport_session_name(name)) return false;
-
-    for (const auto& other : all_sessions) {
-        if (other.spawned_by == s.key) return true;
-    }
-    return false;
 }
 
 void box(int y, int x, int h, int w, const std::string& title, int color_pair) {
@@ -394,12 +368,6 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         }
     }
 
-    std::vector<OpenClawSession> sessions = snapshot.openclaw_session_items;
-    std::sort(sessions.begin(), sessions.end(), [](const OpenClawSession& a, const OpenClawSession& b) {
-        if (a.agent != b.agent) return a.agent < b.agent;
-        return a.key < b.key;
-    });
-
     if (row < oc_bottom) row++;
     if (row < oc_bottom) {
         std::string details = "Session details: update 5s | seq " + std::to_string(snapshot.openclaw_session_seq) + " | monitor " + format_duration_short(snapshot.monitor_uptime_seconds);
@@ -410,11 +378,29 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         mvprintw(row++, 2, "%s", shorten(page_line, w - 4).c_str());
     }
 
-    std::map<std::string, std::vector<OpenClawSession>> sessions_by_agent;
-    for (const auto& s : sessions) sessions_by_agent[s.agent].push_back(s);
+    auto print_session = [&](const SessionNode& node, bool orchestrator, bool subagent) {
+        if (row >= oc_bottom) return;
+        const auto& s = node.session;
+        std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
+        const int indent = subagent ? 12 : 6;
+        const std::string prefix = orchestrator ? "* orchestrator | " : (subagent ? "  -> subagent | " : "- ");
+        print_segments(row++, indent, w - indent - 2, {
+            {10, prefix},
+            {color_for_value(node.channel), node.channel},
+            {10, " | "},
+            {color_for_value(node.session_name), node.session_name},
+            {10, " | "},
+            {color_for_value(s.model), s.model},
+            {10, " | "},
+            {color_for_value(provider_short), provider_short},
+            {10, " | "},
+            {busy_color(s.updated_at), busy_label(s.updated_at)}
+        });
+    };
 
-    for (const auto& [agent_id, agent_sessions] : sessions_by_agent) {
+    for (const auto& group : snapshot.openclaw_session_hierarchy) {
         if (row >= oc_bottom) break;
+        const std::string& agent_id = group.agent_id;
         attron(A_BOLD);
         print_segments(row++, 2, w - 4, {
             {1, "["},
@@ -425,57 +411,43 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         });
         attroff(A_BOLD);
 
-        std::vector<OpenClawSession> orchestrators;
-        std::vector<OpenClawSession> subagents;
-        std::vector<OpenClawSession> others;
-        std::unordered_map<std::string, std::vector<OpenClawSession>> subagents_by_parent;
-        for (const auto& s : agent_sessions) {
-            if (is_orchestrator_session(s, agent_sessions)) orchestrators.push_back(s);
-            else if (is_subagent_session(s)) {
-                subagents.push_back(s);
-                if (!s.spawned_by.empty()) subagents_by_parent[s.spawned_by].push_back(s);
-            } else others.push_back(s);
-        }
-
-        auto print_session = [&](const OpenClawSession& s, bool orchestrator, bool subagent) {
-            if (row >= oc_bottom) return;
-            std::string session_name = !s.label.empty() ? s.label : session_name_from_key(s.key);
-            std::string channel = infer_session_channel(s);
-            std::string provider_short = s.model_provider.empty() ? "-" : s.model_provider;
-            const int indent = subagent ? 12 : 6;
-            const std::string prefix = orchestrator ? "* orchestrator | " : (subagent ? "  -> subagent | " : "- ");
-            print_segments(row++, indent, w - indent - 2, {
-                {10, prefix},
-                {color_for_value(channel), channel},
-                {10, " | "},
-                {color_for_value(session_name), session_name},
-                {10, " | "},
-                {color_for_value(s.model), s.model},
-                {10, " | "},
-                {color_for_value(provider_short), provider_short},
-                {10, " | "},
-                {busy_color(s.updated_at), busy_label(s.updated_at)}
-            });
-        };
-
-        for (const auto& s : orchestrators) {
-            print_session(s, true, false);
-            auto it = subagents_by_parent.find(s.key);
-            if (it != subagents_by_parent.end()) {
-                for (const auto& sub : it->second) print_session(sub, false, true);
+        std::unordered_map<std::string, std::vector<const SessionNode*>> subagents_by_parent;
+        for (const auto& sub : group.unmatched_subagents) {
+            if (!sub.session.spawned_by.empty()) {
+                subagents_by_parent[sub.session.spawned_by].push_back(&sub);
             }
         }
-        std::vector<OpenClawSession> unmatched_subagents;
-        for (const auto& s : subagents) {
-            if (s.spawned_by.empty() || subagents_by_parent.find(s.spawned_by) == subagents_by_parent.end()) unmatched_subagents.push_back(s);
+
+        for (const auto& orchestrator : group.orchestrators) {
+            print_session(orchestrator, true, false);
+            auto it = subagents_by_parent.find(orchestrator.session.key);
+            if (it != subagents_by_parent.end()) {
+                for (const auto* sub : it->second) print_session(*sub, false, true);
+            }
         }
-        if (!unmatched_subagents.empty() && row < oc_bottom) {
-            print_segments(row++, 6, w - 8, {{10, "subagents (unmatched parent):"}});
-            for (const auto& s : unmatched_subagents) print_session(s, false, true);
+
+        bool printed_unmatched_header = false;
+        for (const auto& sub : group.unmatched_subagents) {
+            if (!sub.session.spawned_by.empty() && subagents_by_parent.find(sub.session.spawned_by) != subagents_by_parent.end()) {
+                bool parent_exists = false;
+                for (const auto& orchestrator : group.orchestrators) {
+                    if (orchestrator.session.key == sub.session.spawned_by) {
+                        parent_exists = true;
+                        break;
+                    }
+                }
+                if (parent_exists) continue;
+            }
+            if (!printed_unmatched_header && row < oc_bottom) {
+                print_segments(row++, 6, w - 8, {{10, "subagents (unmatched parent):"}});
+                printed_unmatched_header = true;
+            }
+            print_session(sub, false, true);
         }
-        if (!others.empty() && row < oc_bottom) {
+
+        if (!group.others.empty() && row < oc_bottom) {
             print_segments(row++, 6, w - 8, {{10, "other sessions:"}});
-            for (const auto& s : others) print_session(s, false, false);
+            for (const auto& other : group.others) print_session(other, false, false);
         }
     }
 

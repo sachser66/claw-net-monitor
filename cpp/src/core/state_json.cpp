@@ -18,6 +18,38 @@ std::string escape_json(const std::string& s) {
     }
     return out;
 }
+
+void write_session_json(std::ostringstream& out, const OpenClawSession& s) {
+    out << '{';
+    out << "\"agent\":\"" << escape_json(s.agent) << "\",";
+    out << "\"status\":\"" << escape_json(s.status) << "\",";
+    out << "\"kind\":\"" << escape_json(s.kind) << "\",";
+    out << "\"key\":\"" << escape_json(s.key) << "\",";
+    out << "\"model\":\"" << escape_json(s.model) << "\",";
+    out << "\"model_provider\":\"" << escape_json(s.model_provider) << "\",";
+    out << "\"last_channel\":\"" << escape_json(s.last_channel) << "\",";
+    out << "\"provider\":\"" << escape_json(s.provider) << "\",";
+    out << "\"spawned_by\":\"" << escape_json(s.spawned_by) << "\",";
+    out << "\"label\":\"" << escape_json(s.label) << "\"";
+    out << '}';
+}
+
+void write_session_nodes_json(std::ostringstream& out, const char* name, const std::vector<SessionNode>& nodes) {
+    out << "\"" << name << "\":[";
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        const auto& node = nodes[i];
+        if (i) out << ',';
+        out << '{';
+        out << "\"session_name\":\"" << escape_json(node.session_name) << "\",";
+        out << "\"channel\":\"" << escape_json(node.channel) << "\",";
+        out << "\"is_orchestrator\":" << (node.is_orchestrator ? "true" : "false") << ',';
+        out << "\"is_subagent\":" << (node.is_subagent ? "true" : "false") << ',';
+        out << "\"session\":";
+        write_session_json(out, node.session);
+        out << '}';
+    }
+    out << ']';
+}
 }
 
 std::string snapshot_to_json(const Snapshot& snapshot) {
@@ -77,19 +109,22 @@ std::string snapshot_to_json(const Snapshot& snapshot) {
 
     out << "\"sessions\":[";
     for (std::size_t i = 0; i < snapshot.openclaw_session_items.size(); ++i) {
-        const auto& s = snapshot.openclaw_session_items[i];
+        if (i) out << ',';
+        write_session_json(out, snapshot.openclaw_session_items[i]);
+    }
+    out << "],";
+
+    out << "\"session_hierarchy\":[";
+    for (std::size_t i = 0; i < snapshot.openclaw_session_hierarchy.size(); ++i) {
+        const auto& group = snapshot.openclaw_session_hierarchy[i];
         if (i) out << ',';
         out << '{';
-        out << "\"agent\":\"" << escape_json(s.agent) << "\",";
-        out << "\"status\":\"" << escape_json(s.status) << "\",";
-        out << "\"kind\":\"" << escape_json(s.kind) << "\",";
-        out << "\"key\":\"" << escape_json(s.key) << "\",";
-        out << "\"model\":\"" << escape_json(s.model) << "\",";
-        out << "\"model_provider\":\"" << escape_json(s.model_provider) << "\",";
-        out << "\"last_channel\":\"" << escape_json(s.last_channel) << "\",";
-        out << "\"provider\":\"" << escape_json(s.provider) << "\",";
-        out << "\"spawned_by\":\"" << escape_json(s.spawned_by) << "\",";
-        out << "\"label\":\"" << escape_json(s.label) << "\"";
+        out << "\"agent_id\":\"" << escape_json(group.agent_id) << "\",";
+        write_session_nodes_json(out, "orchestrators", group.orchestrators);
+        out << ',';
+        write_session_nodes_json(out, "unmatched_subagents", group.unmatched_subagents);
+        out << ',';
+        write_session_nodes_json(out, "others", group.others);
         out << '}';
     }
     out << "],";

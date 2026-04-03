@@ -60,6 +60,21 @@ struct OpenClawChannelInfo {
     bool connected = true;
 };
 
+struct SessionNode {
+    OpenClawSession session;
+    std::string session_name;
+    std::string channel;
+    bool is_orchestrator = false;
+    bool is_subagent = false;
+};
+
+struct AgentSessionHierarchy {
+    std::string agent_id;
+    std::vector<SessionNode> orchestrators;
+    std::vector<SessionNode> unmatched_subagents;
+    std::vector<SessionNode> others;
+};
+
 struct GatewayInfo {
     std::string bind;
     std::string port;

@@ -14,6 +14,7 @@ add_executable(claw-net-monitor
   src/collectors/docker_collector.cpp
   src/renderers/terminal_renderer.cpp
   src/core/state_json.cpp
+  src/core/session_hierarchy.cpp
   src/core/triggers.cpp
   src/server/http_server.cpp
 )
