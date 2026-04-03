@@ -1,18 +1,38 @@
 # claw-net-monitor
 
-Live-Netzwerk- und OpenClaw-Monitor mit **C++ Terminal-UI** plus **Mobile-Webansicht**.
+Live-Netzwerk- und OpenClaw-Monitor mit **C++-TUI** plus **Webansicht** auf derselben Snapshot-Datenbasis.
 
-## Morgen-früh-Start
+## Start
 
 ```bash
 ./run.sh
 ```
 
-Dann bekommst du gleichzeitig:
-- Terminal-Monitor lokal
-- Browser/iPhone-Ansicht über HTTP
+Standardmäßig startet das Projekt:
+- die lokale Terminal-Ansicht
+- den eingebauten HTTP-Server für Browser/iPhone
 
-Das Script zeigt dir beim Start direkt die aufrufbare URL an.
+Beim Start zeigt `run.sh` direkt die aufrufbare URL an.
+
+## Modi
+
+### TUI + Web
+
+```bash
+./run.sh
+```
+
+### Nur Headless + Web
+
+```bash
+./run.sh headless
+```
+
+oder:
+
+```bash
+CLAW_MONITOR_HEADLESS=1 ./run.sh
+```
 
 ## Standard-URL
 
@@ -26,23 +46,39 @@ JSON-State:
 http://<HOST-IP>:8080/api/state
 ```
 
-## Falls du einen anderen Port willst
+## Port ändern
 
 ```bash
 CLAW_MONITOR_PORT=8090 ./run.sh
 ```
 
-## Was aktuell drin ist
+## Verhalten von `run.sh`
 
-- Host-Netztraffic aus `/proc/net/dev`
-- Verbindungszustände via `ss`
-- OpenClaw Sessions aller Agenten
-- OpenClaw Agent-Config aus `~/.openclaw/openclaw.json`
-- Gateway-Infos
-- Docker-Netze + laufende Container
-- gemeinsame Datenbasis für TUI + iPhone
+- baut automatisch neu, wenn C++-Quellen neuer als das Binary sind
+- verhindert Doppelstarts per PID-Lock
+- startet nur die aktuelle C++-App
 
-## Kurzbedienung
+## Architektur
 
-- Start: `./run.sh`
-- Beenden: `q`
+- **C++ Runtime** als einzige produktive App
+- **gemeinsamer Snapshot-State** für TUI und Web
+- OpenClaw-Daten aus:
+  - `openclaw sessions --all-agents --json`
+  - `openclaw gateway status --json`
+  - `openclaw models list --json`
+  - `openclaw channels list --json`
+  - `~/.openclaw/openclaw.json`
+- zusätzliche Session-Metadaten aus lokalen Session-Stores
+
+## Manuell bauen
+
+```bash
+cd cpp
+cmake -S . -B build
+cmake --build build -j
+./build/claw-net-monitor
+```
+
+## Bedienung
+
+- `q` beendet die TUI

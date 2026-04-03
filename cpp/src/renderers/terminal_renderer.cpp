@@ -63,6 +63,11 @@ std::string make_real_flow_line(const std::string& from, const std::string& to, 
     return from + " [" + path + "] " + to + " | " + evidence;
 }
 
+std::string ascii_spinner(int tick) {
+    static const char* frames[] = {"|", "/", "-", "\\"};
+    return frames[(tick / 2) % 4];
+}
+
 void print_segments(int y, int x, int width, const std::vector<std::pair<int, std::string>>& segments) {
     if (width <= 0) return;
     int col = x;
@@ -227,10 +232,18 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
     double openclaw_activity = snapshot.openclaw_socket_activity ? localhost_activity : 0.0;
 
     erase();
+    const bool startup_loading = snapshot.monitor_uptime_seconds < 12 &&
+                                 (snapshot.openclaw_session_seq <= 1 ||
+                                  snapshot.openclaw_agents.empty() ||
+                                  snapshot.openclaw_session_items.empty());
+    const std::string spinner = ascii_spinner(tick);
+
     attron(COLOR_PAIR(1) | A_BOLD);
     mvprintw(0, 2, "claw-net-monitor C++ UX-V21 | copyright by Thomas Riedel");
     attroff(COLOR_PAIR(1) | A_BOLD);
-    mvprintw(0, COLS - 20, "q quit | refresh 5s");
+    std::string top_right = startup_loading ? ("loading " + spinner + " | q quit | refresh 5s")
+                                            : "q quit | refresh 5s";
+    mvprintw(0, std::max(2, COLS - static_cast<int>(top_right.size()) - 2), "%s", top_right.c_str());
 
     const int x = 1;
     const int w = COLS - 2;
