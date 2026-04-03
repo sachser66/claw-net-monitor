@@ -88,14 +88,14 @@ body{margin:0;background:linear-gradient(180deg,var(--bg),#0d1324 35%,var(--bg2)
 <body>
 <div class="wrap">
   <div class="h1">claw-net-monitor</div>
-  <div class="sub">OpenClaw oben dominant, Host-/Netz-Sicht darunter — gleiche Datenbasis wie die TUI</div>
+  <div class="sub">OpenClaw: Config + Live-Sessions — darunter Traffic und Paketfluss</div>
   <div id="app" class="c-muted">loading…</div>
 </div>
 <script>
 function rate(v){ let n=Number(v||0),u=['B/s','KB/s','MB/s','GB/s'],i=0; while(n>=1024&&i<u.length-1){n/=1024;i++} return `${n.toFixed(1)} ${u[i]}`; }
 function esc(s){ return String(s??'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
 function clsForValue(v){
-  const s=String(v||'').toLowerCase();
+  const s=String(v??'').toLowerCase();
   if(!s || s==='-') return 'c-muted';
   if(s.includes('telegram')) return 'c-yellow';
   if(s.includes('tui')) return 'c-green';
@@ -109,11 +109,11 @@ function clsForValue(v){
   if(s.includes('busy') || s.includes('warm') || s.includes('session-hot')) return 'c-yellow';
   return 'c-white';
 }
-function renderKv(key, value){ return `<span class="kv"><span class="key">${esc(key)}</span><span class="value ${clsForValue(value)}">${esc(value)}</span></span>`; }
+function renderKv(key, value){ return `<span class="kv"><span class="key">${esc(key)}</span><span class="value ${clsForValue(value)}">${esc(value ?? '-')}</span></span>`; }
 function renderSession(node, kind){
   const s=node.session||{};
   const lineClass = kind==='sub' ? 'sessionLine sub' : (kind==='other' ? 'sessionLine other' : 'sessionLine');
-  const prefix = kind==='sub' ? '&rarr; subagent' : (kind==='orchestrator' ? '* orchestrator' : 'other');
+  const prefix = kind==='sub' ? '&rarr; subagent' : (kind==='orchestrator' ? '* orchestrator' : '-');
   return `<div class="${lineClass}">
     <span class="label c-white">${prefix}</span>
     <span class="sep"> | </span>${renderKv('channel', node.channel||'-')}
@@ -167,14 +167,14 @@ async function load(){
           const group = hierarchy.find(g => g.agent_id === agent.id) || {orchestrators:[], unmatched_subagents:[], others:[]};
           return `<div class="agent">
             <div class="agentHeader">[<span class="${clsForValue(agent.id)}">${esc(agent.id)}</span>] <span class="valueBox">${sessionCountForAgent(group)} sessions</span></div>
-            <div class="agentMeta">${renderKv('name:', agent.name || '-')} <span class="sep">|</span> ${renderKv('busy', group.orchestrators.length ? 'orchestrating' : (sessionCountForAgent(group) ? 'active' : 'idle'))}</div>
+            <div class="agentMeta">${renderKv('name:', agent.name || '-')} <span class="sep">|</span> ${renderKv('busy', group.orchestrators.length ? 'orchestrating' : (sessionCountForAgent(group) ? 'warm' : 'idle'))}</div>
             <div class="agentMeta2">${renderKv('model:', agent.model_primary || '-')} <span class="sep">|</span> ${renderKv('auth:', ((auth.auth_type||'-') + (auth.auth_id ? ' (' + auth.auth_id + ')' : '')))}</div>
             <div class="agentMeta2">${renderKv('model-status:', agent.primary_model_available ? 'primary ok' : 'primary missing')} <span class="sep">|</span> ${renderKv('accounts:', (agent.bound_accounts||[]).join(', ') || '-')}</div>
             <div class="agentMeta2">${renderKv('channels:', (agent.bound_channels||[]).join(', ') || '-')}</div>
             <div class="agentMeta2">${renderKv('workspace:', agent.workspace || '-')}</div>
             <div class="agentMeta2">${renderKv('fallbacks:', (agent.fallbacks||[]).join(', ') || '-')} <span class="sep">|</span> ${renderKv('fallback-status:', `${agent.fallback_models_available||0}/${agent.fallback_models_total||0} ok`)}</div>
 
-            <div class="section c-muted">Session details:</div>
+            <div class="section c-muted">Session details: update 5s | shared hierarchy from snapshot</div>
             ${(group.orchestrators||[]).map(orchestrator => {
               const subs = (group.unmatched_subagents||[]).filter(sub => sub.session?.spawned_by === orchestrator.session?.key);
               return renderSession(orchestrator, 'orchestrator') + subs.map(sub => renderSession(sub, 'sub')).join('');
@@ -205,14 +205,14 @@ async function load(){
 
       <div class="grid2">
         <div class="panel dim">
-          <div class="title">PAKETFLUSS / CONNECTION STATES</div>
+          <div class="title">PAKETFLUSS</div>
           <div class="list">
-            ${conn.map(c => `<div class="row mono">${renderKv('state:', c.state)} <span class="sep">|</span> ${renderKv('count:', c.count)}</div>`).join('') || '<div class="row">Keine Verbindungsdaten</div>'}
+            ${conn.map(c => `<div class="row mono">${renderKv('state:', c.state)} <span class="sep">|</span> ${renderKv('count:', c.count)}</div>`).join('') || '<div class="row">Keine Verbindungsdaten</div>'}<div class="section c-muted">Connection states aus ss</div>
           </div>
         </div>
 
         <div class="panel dim">
-          <div class="title">DOCKER / MODELS / CHANNELS</div>
+          <div class="title">DOCKER / STATES</div>
           <div class="section c-muted">Docker networks</div>
           <div class="list">${(docker.networks||[]).map(x => `<div class="row mono">${esc(x)}</div>`).join('') || '<div class="row">Keine Docker-Netze</div>'}</div>
           <div class="section c-muted">Models</div>
