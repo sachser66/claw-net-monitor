@@ -385,12 +385,35 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
                     break;
                 }
             }
+            long long agent_total_tokens = 0;
+            int agent_pressure = 0;
+            int stale_sessions = 0;
+            bool has_token_data = false;
+            for (const auto& s : snapshot.openclaw_session_items) {
+                if (s.agent != a.id) continue;
+                if (s.total_tokens >= 0) {
+                    agent_total_tokens += s.total_tokens;
+                    has_token_data = true;
+                }
+                if (s.percent_used >= 80) agent_pressure++;
+                if (!s.total_tokens_fresh) stale_sessions++;
+            }
             print_segments(row++, 4, w - 6, {
                 {10, "model: "},
                 {color_for_value(model), model},
                 {10, " | auth: "},
                 {color_for_value(auth_text), auth_text}
             });
+            if (row < oc_bottom) {
+                print_segments(row++, 4, w - 6, {
+                    {10, "agent-tokens: "},
+                    {color_for_value(has_token_data ? std::to_string(agent_total_tokens) : std::string("-")), has_token_data ? std::to_string(agent_total_tokens) : std::string("-")},
+                    {10, " | pressured: "},
+                    {agent_pressure > 0 ? 3 : 6, std::to_string(agent_pressure)},
+                    {10, " | stale: "},
+                    {stale_sessions > 0 ? 3 : 6, std::to_string(stale_sessions)}
+                });
+            }
             if (row < oc_bottom) {
                 print_segments(row++, 4, w - 6, {
                     {10, "model-status: "},
@@ -466,9 +489,9 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         std::string fresh = s.total_tokens_fresh ? "fresh" : "stale";
         print_segments(row++, indent + 2, w - indent - 4, {
             {10, "tokens: "},
-            {color_for_value(total), total},
+            {s.total_tokens_fresh ? color_for_value(total) : 3, total},
             {10, " | remaining: "},
-            {color_for_value(remaining), remaining},
+            {s.remaining_tokens >= 0 && s.remaining_tokens < 20000 ? 3 : color_for_value(remaining), remaining},
             {10, " | used: "},
             {s.percent_used >= 80 ? 3 : color_for_value(used), used},
             {10, " | "},
@@ -484,7 +507,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             {10, " | output: "},
             {color_for_value(out), out},
             {10, " | cache: "},
-            {color_for_value(cache), cache}
+            {s.cache_read_tokens > 50000 ? 3 : color_for_value(cache), cache}
         });
     };
 
