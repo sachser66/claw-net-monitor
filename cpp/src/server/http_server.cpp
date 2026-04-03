@@ -34,132 +34,192 @@ std::string make_html() {
 <title>claw-net-monitor</title>
 <style>
 :root{
-  --bg:#0a0f1f;--panel:#121a30;--panel2:#18233f;--line:#2a3a63;--text:#e8edf7;--muted:#98a5c3;
-  --cyan:#67e8f9;--green:#4ade80;--yellow:#facc15;--pink:#f472b6;--blue:#60a5fa;
+  --bg:#09101d;
+  --bg2:#11182d;
+  --panel:#121a30;
+  --panel2:#18233f;
+  --panel-dim:#0f1629;
+  --line:#30436f;
+  --line-dim:#243553;
+  --text:#e8edf7;
+  --muted:#94a3c3;
+  --white:#ffffff;
+  --cyan:#67e8f9;
+  --green:#4ade80;
+  --yellow:#facc15;
+  --pink:#f472b6;
+  --blue:#60a5fa;
+  --red:#f87171;
 }
-*{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#09101d,#0d1324 35%,#11182d);color:var(--text);font:14px/1.4 system-ui,sans-serif}
-.wrap{max-width:900px;margin:0 auto;padding:14px 12px 32px}
-.h1{font-size:24px;font-weight:800;letter-spacing:.2px}.sub{color:var(--muted);margin-top:4px;margin-bottom:14px}
-.grid{display:grid;gap:12px}.hero{display:grid;grid-template-columns:1fr 1fr;gap:12px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
-.k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.v{font-size:24px;font-weight:800;margin-top:4px}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#20304f;color:#d9e5ff;font-size:12px;margin:2px 6px 0 0}
-.list{display:grid;gap:8px;margin-top:8px}.row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;border:1px solid #2a375b;border-radius:12px;background:rgba(10,16,31,.35)}
-.left{min-width:0}.title{font-weight:700}.meta{font-size:12px;color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.agentGroup{border:1px solid #30436f;border-radius:14px;padding:12px;background:rgba(12,19,38,.55)}
-.tag{font-size:11px;border-radius:999px;padding:3px 8px;background:#243253;color:#cfe0ff}.tag-telegram{background:#173b63;color:#8fd3ff}.tag-tui{background:#234b23;color:#95f29b}.tag-webchat{background:#4b2348;color:#ffb3ef}.tag-discord{background:#2d2d74;color:#c2c8ff}.tag-signal{background:#3b4b58;color:#b8deff}.tag-other{background:#3d3d3d;color:#ddd}.good{color:var(--green)}.warn{color:var(--yellow)}.pink{color:var(--pink)}.cyan{color:var(--cyan)}.blue{color:var(--blue)}
-.bar{height:8px;background:#1b2744;border-radius:999px;overflow:hidden;margin-top:6px}.fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:999px}
-.small{font-size:12px;color:var(--muted)}
-@media (max-width:700px){.hero,.stats{grid-template-columns:1fr}.wrap{padding:10px 10px 24px}.v{font-size:22px}}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,var(--bg),#0d1324 35%,var(--bg2));color:var(--text);font:14px/1.4 system-ui,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:14px 12px 36px}
+.h1{font-size:24px;font-weight:800;letter-spacing:.2px}
+.sub{color:var(--muted);margin-top:4px;margin-bottom:14px}
+.stack{display:grid;gap:12px}
+.panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.panel.dim{background:linear-gradient(180deg,var(--panel-dim),#131b31);border-color:var(--line-dim);opacity:.96}
+.title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.summary{display:flex;flex-wrap:wrap;gap:10px 14px;margin-bottom:8px}
+.kv{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline}
+.key{color:var(--white);font-weight:700}
+.value{font-weight:700}
+.value-muted{color:var(--muted)}
+.sep{color:var(--muted)}
+.section{margin-top:10px}
+.agent{border:1px solid var(--line);border-radius:14px;padding:12px;background:rgba(8,13,24,.26);margin-top:10px}
+.agentHeader{font-weight:800;margin-bottom:8px}
+.agentMeta,.agentMeta2{display:flex;flex-wrap:wrap;gap:6px 10px;font-size:13px;margin-bottom:4px}
+.sessionLine{padding:7px 10px;border-left:2px solid #35517d;background:rgba(6,10,18,.25);border-radius:10px;margin-top:6px;font-size:13px}
+.sessionLine.sub{margin-left:18px;border-left-color:#4a6fb1}
+.sessionLine.other{margin-left:12px;border-left-color:#4e596f;opacity:.96}
+.label{font-weight:700}
+.valueBox{display:inline-block;padding:2px 7px;border-radius:999px;background:#20304f;color:#d9e5ff;font-size:12px;margin-left:4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.list{display:grid;gap:8px}
+.row{padding:10px 12px;border:1px solid #2a375b;border-radius:12px;background:rgba(10,16,31,.35)}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.bar{height:8px;background:#1b2744;border-radius:999px;overflow:hidden;margin-top:6px}
+.fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--blue));border-radius:999px}
+.c-cyan{color:var(--cyan)} .c-green{color:var(--green)} .c-yellow{color:var(--yellow)} .c-pink{color:var(--pink)} .c-blue{color:var(--blue)} .c-red{color:var(--red)} .c-white{color:var(--white)} .c-muted{color:var(--muted)}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}.wrap{padding:10px 10px 24px}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="h1">claw-net-monitor</div>
-  <div class="sub">Terminal + iPhone auf derselben Live-Datenbasis</div>
-  <div id="app" class="small">loading…</div>
+  <div class="sub">OpenClaw oben dominant, Host-/Netz-Sicht darunter — gleiche Datenbasis wie die TUI</div>
+  <div id="app" class="c-muted">loading…</div>
 </div>
 <script>
-function rate(v){
-  let n=Number(v||0),u=['B/s','KB/s','MB/s','GB/s'],i=0; while(n>=1024&&i<u.length-1){n/=1024;i++} return `${n.toFixed(1)} ${u[i]}`;
+function rate(v){ let n=Number(v||0),u=['B/s','KB/s','MB/s','GB/s'],i=0; while(n>=1024&&i<u.length-1){n/=1024;i++} return `${n.toFixed(1)} ${u[i]}`; }
+function esc(s){ return String(s??'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+function clsForValue(v){
+  const s=String(v||'').toLowerCase();
+  if(!s || s==='-') return 'c-muted';
+  if(s.includes('telegram')) return 'c-yellow';
+  if(s.includes('tui')) return 'c-green';
+  if(s.includes('discord')) return 'c-pink';
+  if(s.includes('signal')) return 'c-cyan';
+  if(s.includes('webchat') || s.includes('web')) return 'c-blue';
+  if(s.includes('openai') || s.includes('gpt')) return 'c-cyan';
+  if(s.includes('deepseek')) return 'c-pink';
+  if(s.includes('available') || s.includes('ok') || s.includes('active') || s.includes('running') || s.includes('local')) return 'c-green';
+  if(s.includes('missing') || s.includes('error')) return 'c-red';
+  if(s.includes('busy') || s.includes('warm') || s.includes('session-hot')) return 'c-yellow';
+  return 'c-white';
 }
-function esc(s){return String(s??'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
-function sessionName(s){ const parts=String(s?.key||'').split(':'); return parts[parts.length-1]||s?.key||'-'; }
-function channelClass(ch){ return 'tag-' + ({telegram:'telegram',tui:'tui',webchat:'webchat',discord:'discord',signal:'signal'}[ch]||'other'); }
+function renderKv(key, value){ return `<span class="kv"><span class="key">${esc(key)}</span><span class="value ${clsForValue(value)}">${esc(value)}</span></span>`; }
+function renderSession(node, kind){
+  const s=node.session||{};
+  const lineClass = kind==='sub' ? 'sessionLine sub' : (kind==='other' ? 'sessionLine other' : 'sessionLine');
+  const prefix = kind==='sub' ? '&rarr; subagent' : (kind==='orchestrator' ? '* orchestrator' : 'other');
+  return `<div class="${lineClass}">
+    <span class="label c-white">${prefix}</span>
+    <span class="sep"> | </span>${renderKv('channel', node.channel||'-')}
+    <span class="sep"> | </span>${renderKv('session', node.session_name||'-')}
+    <span class="sep"> | </span>${renderKv('model', s.model||'-')}
+    <span class="sep"> | </span>${renderKv('provider', s.model_provider||'-')}
+  </div>`;
+}
+function sessionCountForAgent(group){
+  return (group.orchestrators||[]).length + (group.unmatched_subagents||[]).length + (group.others||[]).length;
+}
 async function load(){
-  const r=await fetch('/api/state');
-  const j=await r.json();
-  const ifaces=(j.network.interfaces||[]).slice(0,8);
-  const agents=j.openclaw.agents||[];
-  const sessions=j.openclaw.sessions||[];
-  const conn=(j.network.conn_states||[]).slice(0,6);
-  const groupedSessions = Object.entries((sessions||[]).reduce((acc,s)=>{(acc[s.agent] ||= []).push(s); return acc;}, {}));
-  const maxRate=Math.max(1,...ifaces.map(x=>(x.rx_rate||0)+(x.tx_rate||0)));
+  const r = await fetch('/api/state');
+  const j = await r.json();
+  if(!j.openclaw){ document.getElementById('app').innerHTML='<div class="panel">Noch keine Daten</div>'; return; }
+
+  const open = j.openclaw;
+  const net = j.network||{};
+  const docker = j.docker||{};
+  const hierarchy = open.session_hierarchy || [];
+  const models = open.models || [];
+  const channels = open.channels || [];
+  const ifaces = (net.interfaces || []).slice(0,8);
+  const conn = (net.conn_states || []).slice(0,6);
+  const maxRate = Math.max(1, ...ifaces.map(x => (x.rx_rate||0) + (x.tx_rate||0)));
 
   document.getElementById('app').innerHTML = `
-    <div class="hero">
-      <div class="card">
-        <div class="k">OpenClaw</div>
-        <div class="stats" style="grid-template-columns:repeat(5,1fr)">
-          <div><div class="k">Sessions</div><div class="v">${j.openclaw.session_count}</div></div>
-          <div><div class="k">Agents</div><div class="v">${agents.length}</div></div>
-          <div><div class="k">Gateway</div><div class="v" style="font-size:16px">${esc(j.openclaw.gateway.mode||'?')}</div></div>
-          <div><div class="k">Models</div><div class="v">${(j.openclaw.models||[]).length}</div></div>
-          <div><div class="k">Channels</div><div class="v">${(j.openclaw.channels||[]).length}</div></div>
+    <div class="stack">
+      <div class="panel">
+        <div class="title">OPENCLAW</div>
+        <div class="summary">
+          ${renderKv('Sessions:', open.session_count ?? '?')}
+          <span class="sep">|</span>
+          ${renderKv('Agents:', (open.agents||[]).length)}
+          <span class="sep">|</span>
+          ${renderKv('Gateway:', open.gateway?.mode || '?')}
+          <span class="sep">/</span>
+          ${renderKv('bind', open.gateway?.bind || '?')}
+          <span class="sep">/</span>
+          ${renderKv('port', open.gateway?.port || '?')}
         </div>
-        <div style="margin-top:10px">
-          <span class="pill">bind ${esc(j.openclaw.gateway.bind||'?')}</span>
-          <span class="pill">port ${esc(j.openclaw.gateway.port||'?')}</span>
-          <span class="pill">socket ${j.openclaw.socket_activity ? 'active' : 'idle'}</span> <span class="pill">events ${(j.openclaw.trigger_events||[]).slice(0,3).join(', ')||'-'}</span>
+        <div class="summary">
+          ${renderKv('socket', open.socket_activity ? 'active' : 'idle')}
+          <span class="sep">|</span>
+          ${renderKv('events', (open.trigger_events||[]).slice(0,4).join(', ') || '-')}
         </div>
-      </div>
-      <div class="card">
-        <div class="k">Host</div>
-        <div class="stats">
-          <div><div class="k">Interfaces</div><div class="v">${j.network.interfaces.length}</div></div>
-          <div><div class="k">Conn States</div><div class="v">${conn.length}</div></div>
-          <div><div class="k">Docker Nets</div><div class="v">${(j.docker.networks||[]).length}</div></div>
-        </div>
-        <div class="small" style="margin-top:12px">Auto refresh alle 2s</div>
-      </div>
-    </div>
 
-    <div class="grid" style="margin-top:12px">
-      <div class="card">
-        <div class="k">OpenClaw Agents + Sessions</div>
+        <div class="section c-muted">Agents from openclaw.json:</div>
+        ${(open.agents||[]).map(agent => {
+          const auth = (models.find(m => m.key === agent.model_primary) || {});
+          const group = hierarchy.find(g => g.agent_id === agent.id) || {orchestrators:[], unmatched_subagents:[], others:[]};
+          return `<div class="agent">
+            <div class="agentHeader">[<span class="${clsForValue(agent.id)}">${esc(agent.id)}</span>] <span class="valueBox">${sessionCountForAgent(group)} sessions</span></div>
+            <div class="agentMeta">${renderKv('name:', agent.name || '-')} <span class="sep">|</span> ${renderKv('busy', group.orchestrators.length ? 'orchestrating' : (sessionCountForAgent(group) ? 'active' : 'idle'))}</div>
+            <div class="agentMeta2">${renderKv('model:', agent.model_primary || '-')} <span class="sep">|</span> ${renderKv('auth:', ((auth.auth_type||'-') + (auth.auth_id ? ' (' + auth.auth_id + ')' : '')))}</div>
+            <div class="agentMeta2">${renderKv('model-status:', agent.primary_model_available ? 'primary ok' : 'primary missing')} <span class="sep">|</span> ${renderKv('accounts:', (agent.bound_accounts||[]).join(', ') || '-')}</div>
+            <div class="agentMeta2">${renderKv('channels:', (agent.bound_channels||[]).join(', ') || '-')}</div>
+            <div class="agentMeta2">${renderKv('workspace:', agent.workspace || '-')}</div>
+            <div class="agentMeta2">${renderKv('fallbacks:', (agent.fallbacks||[]).join(', ') || '-')} <span class="sep">|</span> ${renderKv('fallback-status:', `${agent.fallback_models_available||0}/${agent.fallback_models_total||0} ok`)}</div>
+
+            <div class="section c-muted">Session details:</div>
+            ${(group.orchestrators||[]).map(orchestrator => {
+              const subs = (group.unmatched_subagents||[]).filter(sub => sub.session?.spawned_by === orchestrator.session?.key);
+              return renderSession(orchestrator, 'orchestrator') + subs.map(sub => renderSession(sub, 'sub')).join('');
+            }).join('')}
+            ${(() => {
+              const unmatched = (group.unmatched_subagents||[]).filter(sub => !(group.orchestrators||[]).some(orchestrator => orchestrator.session?.key === sub.session?.spawned_by));
+              return unmatched.length ? `<div class="section c-muted">subagents (unmatched parent):</div>${unmatched.map(sub => renderSession(sub, 'sub')).join('')}` : '';
+            })()}
+            ${(group.others||[]).length ? `<div class="section c-muted">other sessions:</div>${(group.others||[]).map(other => renderSession(other, 'other')).join('')}` : ''}
+          </div>`;
+        }).join('') || '<div class="agent">Keine Agent-Daten</div>'}
+      </div>
+
+      <div class="panel dim">
+        <div class="title">WO IST TRAFFIC?</div>
         <div class="list">
-          ${agents.map(a=>{
-            const own = sessions.filter(s=>s.agent===a.id);
-            return `<div class="agentGroup">
-              <div class="title">${esc(a.emoji||'')} ${esc(a.id)} <span class="tag">${own.length} sessions</span></div>
-              <div class="meta">name: ${esc(a.name||'-')}</div>
-              <div class="meta mono">workspace: ${esc(a.workspace||'-')}</div>
-              <div class="meta mono">model: ${esc(a.model_primary||'-')} ${a.primary_model_available ? '✅' : '❌'}</div>
-              <div class="meta mono">auth: ${esc(((j.openclaw.models||[]).find(m=>m.key===a.model_primary)?.auth_type)||'-')} ${esc(((j.openclaw.models||[]).find(m=>m.key===a.model_primary)?.auth_id)||'')}</div>
-              <div class="meta mono">fallbacks: ${esc((a.fallbacks||[]).join(', ')||'-')} (${esc(a.fallback_models_available||0)}/${esc(a.fallback_models_total||0)} ok)</div>
-              <div class="meta">accounts: ${esc((a.bound_accounts||[]).join(', ')||'-')}</div>
-              <div class="meta">channels: ${esc((a.bound_channels||[]).join(', ')||'-')}</div>
-              <div class="list">
-                ${own.map(s=>`<div class="row"><div class="left"><div class="title">${esc(sessionName(s))} <span class="tag ${channelClass(s.last_channel||s.provider||'other')}">${esc(s.last_channel||s.provider||'other')}</span> <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')} | ${esc(s.model_provider||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('') || '<div class="small">Keine Sessions für diesen Agenten</div>'}
-              </div>
+          ${ifaces.map(n => {
+            const total = (n.rx_rate||0) + (n.tx_rate||0);
+            const pct = Math.max(2, Math.min(100, (total / maxRate) * 100));
+            return `<div class="row">
+              <div class="mono">${renderKv('iface:', n.name || '-')} <span class="sep">|</span> ${renderKv('group:', n.group || '-')}</div>
+              <div>${renderKv('RX', rate(n.rx_rate))} <span class="sep">|</span> ${renderKv('TX', rate(n.tx_rate))}</div>
+              <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
             </div>`;
-          }).join('') || '<div class="small">Keine Agent-Daten</div>'}
-          ${groupedSessions.filter(([agent])=>!agents.find(a=>a.id===agent)).map(([agent, own])=>`<div class="agentGroup"><div class="title">${esc(agent)} <span class="tag">${own.length} sessions</span></div><div class="meta">kein Config-Eintrag gefunden</div><div class="list">${own.map(s=>`<div class="row"><div class="left"><div class="title">${esc(sessionName(s))} <span class="tag ${channelClass(s.last_channel||s.provider||'other')}">${esc(s.last_channel||s.provider||'other')}</span> <span class="tag">${esc(s.kind)}</span></div><div class="meta mono">${esc(s.model||'-')} | ${esc(s.model_provider||'-')}</div></div><div class="meta">${esc(s.status||'-')}</div></div>`).join('')}</div></div>`).join('')}
+          }).join('') || '<div class="row">Keine Interface-Daten</div>'}
         </div>
       </div>
 
-      <div class="card">
-        <div class="k">Model Inventory</div>
-        <div class="list">
-          ${(j.openclaw.models||[]).map(m=>`<div class="row"><div class="left"><div class="title mono">${esc(m.key)}</div><div class="meta">${esc(m.name||'-')} | ${esc(m.provider||'-')} | auth ${esc(m.auth_type||'-')} ${esc(m.auth_id||'')}</div></div><div class="meta">${m.available ? 'available' : 'missing'}</div></div>`).join('') || '<div class="small">Keine Model-Daten</div>'}
+      <div class="grid2">
+        <div class="panel dim">
+          <div class="title">PAKETFLUSS / CONNECTION STATES</div>
+          <div class="list">
+            ${conn.map(c => `<div class="row mono">${renderKv('state:', c.state)} <span class="sep">|</span> ${renderKv('count:', c.count)}</div>`).join('') || '<div class="row">Keine Verbindungsdaten</div>'}
+          </div>
         </div>
-      </div>
 
-      <div class="card">
-        <div class="k">Channels</div>
-        <div class="list">
-          ${(j.openclaw.channels||[]).map(c=>`<div class="row"><div class="left"><div class="title mono">${esc(c.kind)}</div><div class="meta">${esc(c.account_id||'-')}</div></div><div class="meta">${esc(c.label||'-')}</div></div>`).join('') || '<div class="small">Keine Channel-Daten</div>'}
+        <div class="panel dim">
+          <div class="title">DOCKER / MODELS / CHANNELS</div>
+          <div class="section c-muted">Docker networks</div>
+          <div class="list">${(docker.networks||[]).map(x => `<div class="row mono">${esc(x)}</div>`).join('') || '<div class="row">Keine Docker-Netze</div>'}</div>
+          <div class="section c-muted">Models</div>
+          <div class="list">${models.slice(0,8).map(m => `<div class="row mono">${renderKv('model:', m.key||'-')} <span class="sep">|</span> ${renderKv('auth:', ((m.auth_type||'-') + (m.auth_id ? ' (' + m.auth_id + ')' : '')))} <span class="sep">|</span> ${renderKv('status:', m.available ? 'available' : 'missing')}</div>`).join('') || '<div class="row">Keine Model-Daten</div>'}</div>
+          <div class="section c-muted">Channels</div>
+          <div class="list">${channels.map(c => `<div class="row mono">${renderKv('kind:', c.kind||'-')} <span class="sep">|</span> ${renderKv('account:', c.account_id||'-')}</div>`).join('') || '<div class="row">Keine Channel-Daten</div>'}</div>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="k">Interfaces</div>
-        <div class="list">
-          ${ifaces.map(n=>{const total=(n.rx_rate||0)+(n.tx_rate||0); const pct=Math.max(2,Math.min(100,(total/maxRate)*100)); return `<div class="row"><div class="left" style="flex:1"><div class="title mono">${esc(n.name)} <span class="meta">${esc(n.group)}</span></div><div class="meta">RX ${rate(n.rx_rate)} · TX ${rate(n.tx_rate)}</div><div class="bar"><div class="fill" style="width:${pct}%"></div></div></div></div>`}).join('') || '<div class="small">Keine Interface-Daten</div>'}
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="k">Connection States</div>
-        <div class="list">
-          ${conn.map(c=>`<div class="row"><div class="title mono">${esc(c.state)}</div><div class="title">${esc(c.count)}</div></div>`).join('') || '<div class="small">Keine Verbindungsdaten</div>'}
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="k">Docker</div>
-        <div class="small">Netzwerke</div>
-        <div class="list" style="margin-bottom:10px">${(j.docker.networks||[]).map(x=>`<div class="row"><div class="title mono">${esc(x)}</div></div>`).join('') || '<div class="small">Keine Docker-Netze</div>'}</div>
-        <div class="small">Container</div>
-        <div class="list">${(j.docker.containers||[]).map(x=>`<div class="row"><div class="title mono">${esc(x)}</div></div>`).join('') || '<div class="small">Keine laufenden Container</div>'}</div>
       </div>
     </div>`;
 }
