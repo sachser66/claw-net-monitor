@@ -193,7 +193,8 @@ int main() {
         snapshot.trigger_events = detect_trigger_events(trigger_state, snapshot, config_hash);
 
         http_server_publish_json(snapshot_to_json(snapshot));
-        http_server_publish_summary_text(snapshot_to_summary_text(snapshot));
+        http_server_publish_summary_text(snapshot_to_summary_text(snapshot, false));
+        http_server_publish_summary_full_text(snapshot_to_summary_text(snapshot, true));
         if (!headless) {
             render_terminal(snapshot, groups, tick);
             refresh();
