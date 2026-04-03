@@ -15,3 +15,6 @@ std::vector<OpenClawModelInfo> extract_models(const std::string& json);
 std::vector<OpenClawChannelInfo> extract_channels(const std::string& json);
 void enrich_agents_with_models(std::vector<OpenClawAgentConfig>& agents, const std::vector<OpenClawModelInfo>& models);
 void enrich_agents_with_channels(std::vector<OpenClawAgentConfig>& agents, const std::vector<OpenClawChannelInfo>& channels);
+OpenClawHealthSummary extract_health_summary(const std::string& json);
+OpenClawStatusSummary extract_status_summary(const std::string& json);
+OpenClawUsageCostSummary extract_usage_cost_summary(const std::string& json);

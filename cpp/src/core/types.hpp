@@ -82,6 +82,41 @@ struct GatewayInfo {
     std::string probe_url;
 };
 
+struct OpenClawHealthSummary {
+    bool ok = false;
+    bool available = false;
+    std::string status_text;
+    int configured_channels = 0;
+    int healthy_channels = 0;
+    int running_channels = 0;
+    std::string default_agent_id;
+    int heartbeat_enabled_agents = 0;
+};
+
+struct OpenClawStatusSummary {
+    bool available = false;
+    std::string runtime_version;
+    int queued_system_events = 0;
+    std::string default_model;
+    int session_count = 0;
+    int heartbeat_enabled_agents = 0;
+    int session_pressure_high = 0;
+    int aborted_sessions = 0;
+    int system_sessions = 0;
+    int max_percent_used = 0;
+    std::string hottest_session;
+};
+
+struct OpenClawUsageCostSummary {
+    bool available = false;
+    int days = 0;
+    double total_cost = 0.0;
+    double today_cost = 0.0;
+    long long total_tokens = 0;
+    long long today_tokens = 0;
+    double cache_read_share = 0.0;
+};
+
 struct GroupStat {
     std::string name;
     double rx = 0.0;

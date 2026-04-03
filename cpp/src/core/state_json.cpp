@@ -65,6 +65,38 @@ std::string snapshot_to_json(const Snapshot& snapshot) {
     out << "\"port\":\"" << escape_json(snapshot.gateway.port) << "\",";
     out << "\"probe_url\":\"" << escape_json(snapshot.gateway.probe_url) << "\"},";
 
+    out << "\"health\":{";
+    out << "\"available\":" << (snapshot.openclaw_health.available ? "true" : "false") << ",";
+    out << "\"ok\":" << (snapshot.openclaw_health.ok ? "true" : "false") << ",";
+    out << "\"status_text\":\"" << escape_json(snapshot.openclaw_health.status_text) << "\",";
+    out << "\"configured_channels\":" << snapshot.openclaw_health.configured_channels << ",";
+    out << "\"healthy_channels\":" << snapshot.openclaw_health.healthy_channels << ",";
+    out << "\"running_channels\":" << snapshot.openclaw_health.running_channels << ",";
+    out << "\"default_agent_id\":\"" << escape_json(snapshot.openclaw_health.default_agent_id) << "\",";
+    out << "\"heartbeat_enabled_agents\":" << snapshot.openclaw_health.heartbeat_enabled_agents << "},";
+
+    out << "\"status\":{";
+    out << "\"available\":" << (snapshot.openclaw_status.available ? "true" : "false") << ",";
+    out << "\"runtime_version\":\"" << escape_json(snapshot.openclaw_status.runtime_version) << "\",";
+    out << "\"queued_system_events\":" << snapshot.openclaw_status.queued_system_events << ",";
+    out << "\"default_model\":\"" << escape_json(snapshot.openclaw_status.default_model) << "\",";
+    out << "\"session_count\":" << snapshot.openclaw_status.session_count << ",";
+    out << "\"heartbeat_enabled_agents\":" << snapshot.openclaw_status.heartbeat_enabled_agents << ",";
+    out << "\"session_pressure_high\":" << snapshot.openclaw_status.session_pressure_high << ",";
+    out << "\"aborted_sessions\":" << snapshot.openclaw_status.aborted_sessions << ",";
+    out << "\"system_sessions\":" << snapshot.openclaw_status.system_sessions << ",";
+    out << "\"max_percent_used\":" << snapshot.openclaw_status.max_percent_used << ",";
+    out << "\"hottest_session\":\"" << escape_json(snapshot.openclaw_status.hottest_session) << "\"},";
+
+    out << "\"usage_cost\":{";
+    out << "\"available\":" << (snapshot.openclaw_usage_cost.available ? "true" : "false") << ",";
+    out << "\"days\":" << snapshot.openclaw_usage_cost.days << ",";
+    out << "\"total_cost\":" << snapshot.openclaw_usage_cost.total_cost << ",";
+    out << "\"today_cost\":" << snapshot.openclaw_usage_cost.today_cost << ",";
+    out << "\"total_tokens\":" << snapshot.openclaw_usage_cost.total_tokens << ",";
+    out << "\"today_tokens\":" << snapshot.openclaw_usage_cost.today_tokens << ",";
+    out << "\"cache_read_share\":" << snapshot.openclaw_usage_cost.cache_read_share << "},";
+
     out << "\"agents\":[";
     for (std::size_t i = 0; i < snapshot.openclaw_agents.size(); ++i) {
         const auto& a = snapshot.openclaw_agents[i];

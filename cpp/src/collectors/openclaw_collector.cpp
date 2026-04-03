@@ -9,6 +9,19 @@
 using nlohmann::json;
 
 
+
+namespace {
+template <typename T>
+T json_value_or(const json& obj, const char* key, T fallback) {
+    if (!obj.is_object() || !obj.contains(key) || obj[key].is_null()) return fallback;
+    try {
+        return obj.at(key).get<T>();
+    } catch (...) {
+        return fallback;
+    }
+}
+}
+
 namespace {
 struct SessionStoreMeta {
     std::string spawned_by;
@@ -304,4 +317,120 @@ void enrich_agents_with_channels(std::vector<OpenClawAgentConfig>& agents, const
         std::sort(a.bound_channels.begin(), a.bound_channels.end());
         a.bound_channels.erase(std::unique(a.bound_channels.begin(), a.bound_channels.end()), a.bound_channels.end());
     }
+}
+
+OpenClawHealthSummary extract_health_summary(const std::string& text) {
+    OpenClawHealthSummary out;
+    json root = parse_json_loose(text);
+    if (root.is_discarded() || !root.is_object()) return out;
+
+    out.available = true;
+    out.ok = json_value_or<bool>(root, "ok", false);
+    out.status_text = out.ok ? "ok" : "warn";
+    out.default_agent_id = json_value_or<std::string>(root, "defaultAgentId", "");
+
+    if (root.contains("channels") && root["channels"].is_object()) {
+        for (auto it = root["channels"].begin(); it != root["channels"].end(); ++it) {
+            const auto& channel = it.value();
+            if (!channel.is_object()) continue;
+            int configured_here = 0;
+            int healthy_here = 0;
+            int running_here = 0;
+            if (channel.contains("accounts") && channel["accounts"].is_object()) {
+                for (auto acc = channel["accounts"].begin(); acc != channel["accounts"].end(); ++acc) {
+                    const auto& account = acc.value();
+                    if (!account.is_object()) continue;
+                    if (json_value_or<bool>(account, "configured", false)) configured_here++;
+                    if (json_value_or<bool>(account, "running", false)) running_here++;
+                    if (account.contains("probe") && account["probe"].is_object() && json_value_or<bool>(account["probe"], "ok", false)) healthy_here++;
+                }
+            } else {
+                if (json_value_or<bool>(channel, "configured", false)) configured_here++;
+                if (json_value_or<bool>(channel, "running", false)) running_here++;
+                if (channel.contains("probe") && channel["probe"].is_object() && json_value_or<bool>(channel["probe"], "ok", false)) healthy_here++;
+            }
+            out.configured_channels += configured_here;
+            out.running_channels += running_here;
+            out.healthy_channels += healthy_here;
+        }
+    }
+
+    if (root.contains("agents") && root["agents"].is_array()) {
+        for (const auto& agent : root["agents"]) {
+            if (!agent.is_object()) continue;
+            if (agent.contains("heartbeat") && agent["heartbeat"].is_object() && agent["heartbeat"].value("enabled", false)) {
+                out.heartbeat_enabled_agents++;
+            }
+        }
+    }
+
+    return out;
+}
+
+OpenClawStatusSummary extract_status_summary(const std::string& text) {
+    OpenClawStatusSummary out;
+    json root = parse_json_loose(text);
+    if (root.is_discarded() || !root.is_object()) return out;
+
+    out.available = true;
+    out.runtime_version = json_value_or<std::string>(root, "runtimeVersion", "");
+    if (root.contains("queuedSystemEvents") && root["queuedSystemEvents"].is_array()) {
+        out.queued_system_events = static_cast<int>(root["queuedSystemEvents"].size());
+    }
+    if (root.contains("heartbeat") && root["heartbeat"].is_object()) {
+        const auto& heartbeat = root["heartbeat"];
+        if (heartbeat.contains("agents") && heartbeat["agents"].is_array()) {
+            for (const auto& agent : heartbeat["agents"]) {
+                if (agent.is_object() && agent.value("enabled", false)) out.heartbeat_enabled_agents++;
+            }
+        }
+    }
+    if (root.contains("sessions") && root["sessions"].is_object()) {
+        const auto& sessions = root["sessions"];
+        out.session_count = json_value_or<int>(sessions, "count", 0);
+        if (sessions.contains("defaults") && sessions["defaults"].is_object()) {
+            out.default_model = json_value_or<std::string>(sessions["defaults"], "model", "");
+        }
+        if (sessions.contains("recent") && sessions["recent"].is_array()) {
+            for (const auto& session : sessions["recent"]) {
+                if (!session.is_object()) continue;
+                const int percent = json_value_or<int>(session, "percentUsed", 0);
+                const bool aborted = json_value_or<bool>(session, "abortedLastRun", false);
+                const bool system_sent = json_value_or<bool>(session, "systemSent", false);
+                if (percent >= 80) out.session_pressure_high++;
+                if (aborted) out.aborted_sessions++;
+                if (system_sent) out.system_sessions++;
+                if (percent > out.max_percent_used) {
+                    out.max_percent_used = percent;
+                    out.hottest_session = json_value_or<std::string>(session, "key", "");
+                }
+            }
+        }
+    }
+
+    return out;
+}
+
+OpenClawUsageCostSummary extract_usage_cost_summary(const std::string& text) {
+    OpenClawUsageCostSummary out;
+    json root = parse_json_loose(text);
+    if (root.is_discarded() || !root.is_object()) return out;
+
+    out.available = true;
+    out.days = json_value_or<int>(root, "days", 0);
+    if (root.contains("totals") && root["totals"].is_object()) {
+        const auto& totals = root["totals"];
+        out.total_cost = json_value_or<double>(totals, "totalCost", 0.0);
+        out.total_tokens = json_value_or<long long>(totals, "totalTokens", 0LL);
+        const double cache_read = json_value_or<double>(totals, "cacheReadCost", 0.0);
+        out.cache_read_share = out.total_cost > 0.0 ? (cache_read / out.total_cost) : 0.0;
+    }
+    if (root.contains("daily") && root["daily"].is_array() && !root["daily"].empty()) {
+        const auto& today = root["daily"].back();
+        if (today.is_object()) {
+            out.today_cost = json_value_or<double>(today, "totalCost", 0.0);
+            out.today_tokens = json_value_or<long long>(today, "totalTokens", 0LL);
+        }
+    }
+    return out;
 }

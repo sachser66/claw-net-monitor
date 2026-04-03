@@ -71,7 +71,7 @@ int main() {
     const auto app_started_at = Clock::now();
     auto last = Clock::now();
     auto next_tick = Clock::now();
-    CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache, models_cache, channels_cache;
+    CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache, models_cache, channels_cache, health_cache, status_cache, usage_cost_cache;
     TriggerState trigger_state;
     long long session_update_seq = 0;
     int tick = 0;
@@ -118,6 +118,24 @@ int main() {
             channels_cache.fetched_at = now;
             channels_cache.ready = true;
         }
+        if (!health_cache.ready || now - health_cache.fetched_at > std::chrono::seconds(15)) {
+            const auto next = exec_read("openclaw health --json 2>/dev/null || true");
+            if (!next.empty()) health_cache.text = next;
+            health_cache.fetched_at = now;
+            health_cache.ready = true;
+        }
+        if (!status_cache.ready || now - status_cache.fetched_at > std::chrono::seconds(15)) {
+            const auto next = exec_read("openclaw status --json 2>/dev/null || true");
+            if (!next.empty()) status_cache.text = next;
+            status_cache.fetched_at = now;
+            status_cache.ready = true;
+        }
+        if (!usage_cost_cache.ready || now - usage_cost_cache.fetched_at > std::chrono::seconds(120)) {
+            const auto next = exec_read("openclaw gateway usage-cost --json --days 7 2>/dev/null || true");
+            if (!next.empty()) usage_cost_cache.text = next;
+            usage_cost_cache.fetched_at = now;
+            usage_cost_cache.ready = true;
+        }
         if (!docker_net_cache.ready || now - docker_net_cache.fetched_at > std::chrono::seconds(10)) {
             docker_net_cache.text = exec_read("docker network ls --format '{{.Name}}  {{.Driver}}  {{.Scope}}' 2>/dev/null");
             docker_net_cache.fetched_at = now;
@@ -144,11 +162,17 @@ int main() {
         enrich_agents_with_models(snapshot.openclaw_agents, snapshot.openclaw_models);
         enrich_agents_with_channels(snapshot.openclaw_agents, snapshot.openclaw_channels);
         snapshot.gateway = extract_gateway_info(gateway_cache.text);
+        snapshot.openclaw_health = extract_health_summary(health_cache.text);
+        snapshot.openclaw_status = extract_status_summary(status_cache.text);
+        snapshot.openclaw_usage_cost = extract_usage_cost_summary(usage_cost_cache.text);
         if (snapshot.openclaw_agents.empty() && !config_cache.text.empty()) {
             snapshot.openclaw_agents = extract_agent_configs(read_file_text("/home/tr4/.openclaw/openclaw.json"));
         }
         if ((snapshot.gateway.mode.empty() || snapshot.gateway.bind.empty()) && !gateway_cache.text.empty()) {
             snapshot.gateway = extract_gateway_info(gateway_cache.text);
+        snapshot.openclaw_health = extract_health_summary(health_cache.text);
+        snapshot.openclaw_status = extract_status_summary(status_cache.text);
+        snapshot.openclaw_usage_cost = extract_usage_cost_summary(usage_cost_cache.text);
         }
         snapshot.openclaw_sockets = parse_openclaw_sockets(ss_cache.text);
         snapshot.openclaw_socket_activity = has_openclaw_local_activity(snapshot.openclaw_sockets);

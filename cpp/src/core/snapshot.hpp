@@ -18,6 +18,9 @@ struct Snapshot {
     std::vector<std::string> docker_containers;
     std::vector<std::string> openclaw_sockets;
     GatewayInfo gateway;
+    OpenClawHealthSummary openclaw_health;
+    OpenClawStatusSummary openclaw_status;
+    OpenClawUsageCostSummary openclaw_usage_cost;
     std::vector<std::string> trigger_events;
     long long openclaw_session_seq = 0;
     long long monitor_uptime_seconds = 0;

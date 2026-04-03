@@ -269,6 +269,51 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         print_segments(row++, 2, w - 4, segments);
         if (!snapshot.trigger_events.empty() && row < oc_bottom) row++;
     }
+    if (row < oc_bottom) {
+        const auto& h = snapshot.openclaw_health;
+        const auto& s = snapshot.openclaw_status;
+        std::string health_text = h.available ? (h.ok ? "ok" : "warn") : "-";
+        std::string runtime_text = s.available ? (s.runtime_version.empty() ? "-" : s.runtime_version) : "-";
+        print_segments(row++, 2, w - 4, {
+            {10, "Health: "},
+            {h.ok ? 6 : 3, health_text},
+            {10, " | Runtime: "},
+            {color_for_value(runtime_text), runtime_text},
+            {10, " | Queued events: "},
+            {color_for_value(std::to_string(s.queued_system_events)), std::to_string(s.queued_system_events)},
+            {10, " | Heartbeat agents: "},
+            {color_for_value(std::to_string(h.heartbeat_enabled_agents)), std::to_string(h.heartbeat_enabled_agents)}
+        });
+    }
+    if (row < oc_bottom) {
+        const auto& h = snapshot.openclaw_health;
+        const auto& s = snapshot.openclaw_status;
+        const auto& c = snapshot.openclaw_usage_cost;
+        std::string hottest = s.hottest_session.empty() ? "-" : s.hottest_session;
+        std::string cost7d;
+        {
+            std::ostringstream cost;
+            cost << std::fixed << std::setprecision(2) << c.total_cost;
+            cost7d = c.available ? ("$" + cost.str()) : "-";
+        }
+        print_segments(row++, 2, w - 4, {
+            {10, "Channels ok: "},
+            {color_for_value(std::to_string(h.healthy_channels) + "/" + std::to_string(h.configured_channels)), std::to_string(h.healthy_channels) + "/" + std::to_string(h.configured_channels)},
+            {10, " | Pressure>=80%: "},
+            {s.session_pressure_high > 0 ? 3 : 6, std::to_string(s.session_pressure_high)},
+            {10, " | Max used: "},
+            {color_for_value(std::to_string(s.max_percent_used) + "%"), std::to_string(s.max_percent_used) + "%"},
+            {10, " | Cost 7d: "},
+            {color_for_value(cost7d), cost7d}
+        });
+        if (row < oc_bottom && !hottest.empty()) {
+            print_segments(row++, 2, w - 4, {
+                {10, "Hottest session: "},
+                {color_for_value(hottest), hottest}
+            });
+        }
+        if (row < oc_bottom) row++;
+    }
 
     if (row < oc_bottom) mvprintw(row++, 2, "%s", shorten("Agents from openclaw.json:", w - 4).c_str());
     for (std::size_t i = 0; i < snapshot.openclaw_agents.size() && row < oc_bottom; ++i) {
