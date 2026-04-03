@@ -15,6 +15,7 @@ std::atomic<bool> g_running{false};
 std::thread g_thread;
 std::mutex g_mutex;
 std::string g_json = "";
+std::string g_summary_text = "";
 int g_server_fd = -1;
 
 std::string make_response(const std::string& body, const std::string& content_type = "application/json") {
@@ -281,10 +282,15 @@ void server_loop(int port) {
 
         std::string body;
         std::string resp;
-        if (req.find("GET /api/state ") != std::string::npos || req.find("GET /api/state?") != std::string::npos) {
+        const std::string first_line = req.substr(0, req.find("\r\n"));
+        if (first_line.rfind("GET /api/state", 0) == 0) {
             std::lock_guard<std::mutex> lock(g_mutex);
             body = g_json.empty() ? "{\"ready\":false}" : g_json;
             resp = make_response(body, "application/json");
+        } else if (first_line.rfind("GET /api/summary", 0) == 0) {
+            std::lock_guard<std::mutex> lock(g_mutex);
+            body = g_summary_text.empty() ? "Monitor noch nicht bereit" : g_summary_text;
+            resp = make_response(body, "text/plain; charset=utf-8");
         } else {
             body = make_html();
             resp = make_response(body, "text/html; charset=utf-8");
@@ -306,6 +312,11 @@ void http_server_start(int port) {
 void http_server_publish_json(const std::string& json) {
     std::lock_guard<std::mutex> lock(g_mutex);
     g_json = json;
+}
+
+void http_server_publish_summary_text(const std::string& text) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    g_summary_text = text;
 }
 
 void http_server_stop() {

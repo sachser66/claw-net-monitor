@@ -10,6 +10,7 @@
 #include "../collectors/openclaw_collector.hpp"
 #include "../core/snapshot.hpp"
 #include "../core/state_json.hpp"
+#include "../core/summary_text.hpp"
 #include "../core/session_hierarchy.hpp"
 #include "../core/triggers.hpp"
 #include "../renderers/terminal_renderer.hpp"
@@ -192,6 +193,7 @@ int main() {
         snapshot.trigger_events = detect_trigger_events(trigger_state, snapshot, config_hash);
 
         http_server_publish_json(snapshot_to_json(snapshot));
+        http_server_publish_summary_text(snapshot_to_summary_text(snapshot));
         if (!headless) {
             render_terminal(snapshot, groups, tick);
             refresh();
