@@ -416,11 +416,14 @@ OpenClawUsageCostSummary extract_usage_cost_summary(const std::string& text) {
     json root = parse_json_loose(text);
     if (root.is_discarded() || !root.is_object()) return out;
 
+    constexpr double usd_to_eur = 0.92;
     out.available = true;
     out.days = json_value_or<int>(root, "days", 0);
+    out.currency = "USD";
     if (root.contains("totals") && root["totals"].is_object()) {
         const auto& totals = root["totals"];
         out.total_cost = json_value_or<double>(totals, "totalCost", 0.0);
+        out.total_cost_eur = out.total_cost * usd_to_eur;
         out.total_tokens = json_value_or<long long>(totals, "totalTokens", 0LL);
         const double cache_read = json_value_or<double>(totals, "cacheReadCost", 0.0);
         out.cache_read_share = out.total_cost > 0.0 ? (cache_read / out.total_cost) : 0.0;
@@ -429,6 +432,7 @@ OpenClawUsageCostSummary extract_usage_cost_summary(const std::string& text) {
         const auto& today = root["daily"].back();
         if (today.is_object()) {
             out.today_cost = json_value_or<double>(today, "totalCost", 0.0);
+            out.today_cost_eur = out.today_cost * usd_to_eur;
             out.today_tokens = json_value_or<long long>(today, "totalTokens", 0LL);
         }
     }

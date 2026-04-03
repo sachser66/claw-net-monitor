@@ -292,9 +292,11 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         std::string hottest = s.hottest_session.empty() ? "-" : s.hottest_session;
         std::string cost7d;
         {
-            std::ostringstream cost;
-            cost << std::fixed << std::setprecision(2) << c.total_cost;
-            cost7d = c.available ? ("$" + cost.str()) : "-";
+            std::ostringstream usd;
+            std::ostringstream eur;
+            usd << std::fixed << std::setprecision(2) << c.total_cost;
+            eur << std::fixed << std::setprecision(2) << c.total_cost_eur;
+            cost7d = c.available ? ("$" + usd.str() + " (€" + eur.str() + ")") : "-";
         }
         print_segments(row++, 2, w - 4, {
             {10, "Channels ok: "},

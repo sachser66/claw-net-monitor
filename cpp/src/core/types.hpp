@@ -110,8 +110,11 @@ struct OpenClawStatusSummary {
 struct OpenClawUsageCostSummary {
     bool available = false;
     int days = 0;
+    std::string currency = "USD";
     double total_cost = 0.0;
     double today_cost = 0.0;
+    double total_cost_eur = 0.0;
+    double today_cost_eur = 0.0;
     long long total_tokens = 0;
     long long today_tokens = 0;
     double cache_read_share = 0.0;

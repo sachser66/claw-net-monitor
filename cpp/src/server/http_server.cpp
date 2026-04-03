@@ -170,7 +170,7 @@ async function load(){
         <div class="section c-muted">Health / usage summary:</div>
         <div class="agent">
           <div class="agentMeta">${renderKv('channels ok:', `${open.health?.healthy_channels ?? 0}/${open.health?.configured_channels ?? 0}`)} <span class="sep">|</span> ${renderKv('heartbeat agents:', open.health?.heartbeat_enabled_agents ?? 0)} <span class="sep">|</span> ${renderKv('pressure >=80%:', open.status?.session_pressure_high ?? 0)}</div>
-          <div class="agentMeta2">${renderKv('max used:', `${open.status?.max_percent_used ?? 0}%`)} <span class="sep">|</span> ${renderKv('cost 7d:', open.usage_cost?.available ? ('$' + Number(open.usage_cost.total_cost || 0).toFixed(2)) : '-')} <span class="sep">|</span> ${renderKv('today:', open.usage_cost?.available ? ('$' + Number(open.usage_cost.today_cost || 0).toFixed(2)) : '-')}</div>
+          <div class="agentMeta2">${renderKv('max used:', `${open.status?.max_percent_used ?? 0}%`)} <span class="sep">|</span> ${renderKv('cost 7d:', open.usage_cost?.available ? ('$' + Number(open.usage_cost.total_cost || 0).toFixed(2) + ' (€' + Number(open.usage_cost.total_cost_eur || 0).toFixed(2) + ')') : '-')} <span class="sep">|</span> ${renderKv('today:', open.usage_cost?.available ? ('$' + Number(open.usage_cost.today_cost || 0).toFixed(2) + ' (€' + Number(open.usage_cost.today_cost_eur || 0).toFixed(2) + ')') : '-')}</div>
         </div>
 
         <div class="section c-muted">Agents from openclaw.json:</div>

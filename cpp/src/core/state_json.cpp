@@ -91,8 +91,11 @@ std::string snapshot_to_json(const Snapshot& snapshot) {
     out << "\"usage_cost\":{";
     out << "\"available\":" << (snapshot.openclaw_usage_cost.available ? "true" : "false") << ",";
     out << "\"days\":" << snapshot.openclaw_usage_cost.days << ",";
+    out << "\"currency\":\"" << escape_json(snapshot.openclaw_usage_cost.currency) << "\",";
     out << "\"total_cost\":" << snapshot.openclaw_usage_cost.total_cost << ",";
     out << "\"today_cost\":" << snapshot.openclaw_usage_cost.today_cost << ",";
+    out << "\"total_cost_eur\":" << snapshot.openclaw_usage_cost.total_cost_eur << ",";
+    out << "\"today_cost_eur\":" << snapshot.openclaw_usage_cost.today_cost_eur << ",";
     out << "\"total_tokens\":" << snapshot.openclaw_usage_cost.total_tokens << ",";
     out << "\"today_tokens\":" << snapshot.openclaw_usage_cost.today_tokens << ",";
     out << "\"cache_read_share\":" << snapshot.openclaw_usage_cost.cache_read_share << "},";
