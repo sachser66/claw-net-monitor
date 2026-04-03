@@ -30,7 +30,18 @@ void write_session_json(std::ostringstream& out, const OpenClawSession& s) {
     out << "\"last_channel\":\"" << escape_json(s.last_channel) << "\",";
     out << "\"provider\":\"" << escape_json(s.provider) << "\",";
     out << "\"spawned_by\":\"" << escape_json(s.spawned_by) << "\",";
-    out << "\"label\":\"" << escape_json(s.label) << "\"";
+    out << "\"label\":\"" << escape_json(s.label) << "\",";
+    out << "\"input_tokens\":" << s.input_tokens << ",";
+    out << "\"output_tokens\":" << s.output_tokens << ",";
+    out << "\"cache_read_tokens\":" << s.cache_read_tokens << ",";
+    out << "\"cache_write_tokens\":" << s.cache_write_tokens << ",";
+    out << "\"total_tokens\":" << s.total_tokens << ",";
+    out << "\"remaining_tokens\":" << s.remaining_tokens << ",";
+    out << "\"context_tokens\":" << s.context_tokens << ",";
+    out << "\"percent_used\":" << s.percent_used << ",";
+    out << "\"total_tokens_fresh\":" << (s.total_tokens_fresh ? "true" : "false") << ",";
+    out << "\"aborted_last_run\":" << (s.aborted_last_run ? "true" : "false") << ",";
+    out << "\"system_sent\":" << (s.system_sent ? "true" : "false");
     out << '}';
 }
 
@@ -88,6 +99,30 @@ std::string snapshot_to_json(const Snapshot& snapshot) {
     out << "\"max_percent_used\":" << snapshot.openclaw_status.max_percent_used << ",";
     out << "\"hottest_session\":\"" << escape_json(snapshot.openclaw_status.hottest_session) << "\"},";
 
+    out << "\"usage\":{";
+    out << "\"available\":" << (snapshot.openclaw_usage.available ? "true" : "false") << ",";
+    out << "\"updated_at\":" << snapshot.openclaw_usage.updated_at << ",";
+    out << "\"providers\":[";
+    for (std::size_t i = 0; i < snapshot.openclaw_usage.providers.size(); ++i) {
+        const auto& provider = snapshot.openclaw_usage.providers[i];
+        if (i) out << ',';
+        out << '{';
+        out << "\"provider\":\"" << escape_json(provider.provider) << "\",";
+        out << "\"display_name\":\"" << escape_json(provider.display_name) << "\",";
+        out << "\"plan\":\"" << escape_json(provider.plan) << "\",";
+        out << "\"windows\":[";
+        for (std::size_t j = 0; j < provider.windows.size(); ++j) {
+            const auto& window = provider.windows[j];
+            if (j) out << ',';
+            out << '{';
+            out << "\"label\":\"" << escape_json(window.label) << "\",";
+            out << "\"used_percent\":" << window.used_percent << ",";
+            out << "\"reset_at\":" << window.reset_at;
+            out << '}';
+        }
+        out << "]}";
+    }
+    out << "]},";
     out << "\"usage_cost\":{";
     out << "\"available\":" << (snapshot.openclaw_usage_cost.available ? "true" : "false") << ",";
     out << "\"days\":" << snapshot.openclaw_usage_cost.days << ",";

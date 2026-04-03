@@ -20,6 +20,7 @@ struct Snapshot {
     GatewayInfo gateway;
     OpenClawHealthSummary openclaw_health;
     OpenClawStatusSummary openclaw_status;
+    OpenClawUsageSummary openclaw_usage;
     OpenClawUsageCostSummary openclaw_usage_cost;
     std::vector<std::string> trigger_events;
     long long openclaw_session_seq = 0;

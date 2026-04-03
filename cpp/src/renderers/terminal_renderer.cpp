@@ -296,7 +296,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             std::ostringstream eur;
             usd << std::fixed << std::setprecision(2) << c.total_cost;
             eur << std::fixed << std::setprecision(2) << c.total_cost_eur;
-            cost7d = c.available ? ("$" + usd.str() + " (€" + eur.str() + ")") : "-";
+            cost7d = c.available ? ("$" + usd.str() + " (~€" + eur.str() + ")") : "-";
         }
         print_segments(row++, 2, w - 4, {
             {10, "Channels ok: "},
@@ -308,6 +308,22 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             {10, " | Cost 7d: "},
             {color_for_value(cost7d), cost7d}
         });
+        if (row < oc_bottom && !snapshot.openclaw_usage.providers.empty()) {
+            std::vector<std::pair<int, std::string>> usage_segments = {{10, "Usage: "}};
+            bool first_provider = true;
+            for (const auto& provider : snapshot.openclaw_usage.providers) {
+                if (!first_provider) usage_segments.push_back({10, " | "});
+                first_provider = false;
+                const std::string name = provider.display_name.empty() ? provider.provider : provider.display_name;
+                std::string summary = name;
+                if (!provider.plan.empty()) summary += " " + provider.plan;
+                for (std::size_t i = 0; i < provider.windows.size() && i < 2; ++i) {
+                    summary += " | " + provider.windows[i].label + " " + std::to_string(provider.windows[i].used_percent) + "%";
+                }
+                usage_segments.push_back({color_for_value(summary), summary});
+            }
+            print_segments(row++, 2, w - 4, usage_segments);
+        }
         if (row < oc_bottom && !hottest.empty()) {
             print_segments(row++, 2, w - 4, {
                 {10, "Hottest session: "},
@@ -442,6 +458,33 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             {color_for_value(provider_short), provider_short},
             {10, " | "},
             {busy_color(s.updated_at), busy_label(s.updated_at)}
+        });
+        if (row >= oc_bottom) return;
+        std::string total = s.total_tokens >= 0 ? std::to_string(s.total_tokens) : "-";
+        std::string remaining = s.remaining_tokens >= 0 ? std::to_string(s.remaining_tokens) : "-";
+        std::string used = s.percent_used >= 0 ? std::to_string(s.percent_used) + "%" : "-";
+        std::string fresh = s.total_tokens_fresh ? "fresh" : "stale";
+        print_segments(row++, indent + 2, w - indent - 4, {
+            {10, "tokens: "},
+            {color_for_value(total), total},
+            {10, " | remaining: "},
+            {color_for_value(remaining), remaining},
+            {10, " | used: "},
+            {s.percent_used >= 80 ? 3 : color_for_value(used), used},
+            {10, " | "},
+            {s.total_tokens_fresh ? 6 : 3, fresh}
+        });
+        if (row >= oc_bottom) return;
+        std::string in = s.input_tokens >= 0 ? std::to_string(s.input_tokens) : "-";
+        std::string out = s.output_tokens >= 0 ? std::to_string(s.output_tokens) : "-";
+        std::string cache = s.cache_read_tokens >= 0 ? std::to_string(s.cache_read_tokens) : "-";
+        print_segments(row++, indent + 2, w - indent - 4, {
+            {10, "input: "},
+            {color_for_value(in), in},
+            {10, " | output: "},
+            {color_for_value(out), out},
+            {10, " | cache: "},
+            {color_for_value(cache), cache}
         });
     };
 

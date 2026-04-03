@@ -83,6 +83,17 @@ std::vector<OpenClawSession> extract_sessions(const std::string& text) {
         s.subagent_role = item.value("subagentRole", "");
         s.label = item.value("label", "");
         s.updated_at = item.value("updatedAt", 0LL);
+        s.input_tokens = json_value_or<long long>(item, "inputTokens", -1LL);
+        s.output_tokens = json_value_or<long long>(item, "outputTokens", -1LL);
+        s.cache_read_tokens = json_value_or<long long>(item, "cacheRead", -1LL);
+        s.cache_write_tokens = json_value_or<long long>(item, "cacheWrite", -1LL);
+        s.total_tokens = json_value_or<long long>(item, "totalTokens", -1LL);
+        s.remaining_tokens = json_value_or<long long>(item, "remainingTokens", -1LL);
+        s.context_tokens = json_value_or<long long>(item, "contextTokens", -1LL);
+        s.percent_used = json_value_or<int>(item, "percentUsed", -1);
+        s.total_tokens_fresh = json_value_or<bool>(item, "totalTokensFresh", false);
+        s.aborted_last_run = json_value_or<bool>(item, "abortedLastRun", false);
+        s.system_sent = json_value_or<bool>(item, "systemSent", false);
 
         if (s.agent.empty() && s.key.rfind("agent:", 0) == 0) {
             auto first = s.key.find(':');
@@ -434,6 +445,70 @@ OpenClawUsageCostSummary extract_usage_cost_summary(const std::string& text) {
             out.today_cost = json_value_or<double>(today, "totalCost", 0.0);
             out.today_cost_eur = out.today_cost * usd_to_eur;
             out.today_tokens = json_value_or<long long>(today, "totalTokens", 0LL);
+        }
+    }
+    return out;
+}
+
+
+void merge_status_session_metrics(std::vector<OpenClawSession>& sessions, const std::string& status_json) {
+    json root = parse_json_loose(status_json);
+    if (root.is_discarded() || !root.contains("sessions") || !root["sessions"].is_object()) return;
+    const auto& sessions_obj = root["sessions"];
+    if (!sessions_obj.contains("recent") || !sessions_obj["recent"].is_array()) return;
+
+    std::unordered_map<std::string, const json*> by_key;
+    for (const auto& item : sessions_obj["recent"]) {
+        if (!item.is_object()) continue;
+        const std::string key = json_value_or<std::string>(item, "key", "");
+        if (!key.empty()) by_key[key] = &item;
+    }
+
+    for (auto& s : sessions) {
+        auto it = by_key.find(s.key);
+        if (it == by_key.end()) continue;
+        const auto& item = *it->second;
+        if (s.input_tokens < 0) s.input_tokens = json_value_or<long long>(item, "inputTokens", -1LL);
+        if (s.output_tokens < 0) s.output_tokens = json_value_or<long long>(item, "outputTokens", -1LL);
+        if (s.cache_read_tokens < 0) s.cache_read_tokens = json_value_or<long long>(item, "cacheRead", -1LL);
+        if (s.cache_write_tokens < 0) s.cache_write_tokens = json_value_or<long long>(item, "cacheWrite", -1LL);
+        if (s.total_tokens < 0) s.total_tokens = json_value_or<long long>(item, "totalTokens", -1LL);
+        if (s.remaining_tokens < 0) s.remaining_tokens = json_value_or<long long>(item, "remainingTokens", -1LL);
+        if (s.context_tokens < 0) s.context_tokens = json_value_or<long long>(item, "contextTokens", -1LL);
+        if (s.percent_used < 0) s.percent_used = json_value_or<int>(item, "percentUsed", -1);
+        s.total_tokens_fresh = s.total_tokens_fresh || json_value_or<bool>(item, "totalTokensFresh", false);
+        s.aborted_last_run = s.aborted_last_run || json_value_or<bool>(item, "abortedLastRun", false);
+        s.system_sent = s.system_sent || json_value_or<bool>(item, "systemSent", false);
+    }
+}
+
+OpenClawUsageSummary extract_usage_summary(const std::string& text) {
+    OpenClawUsageSummary out;
+    json root = parse_json_loose(text);
+    if (root.is_discarded() || !root.is_object()) return out;
+    if (!root.contains("usage") || !root["usage"].is_object()) return out;
+    const auto& usage = root["usage"];
+
+    out.available = true;
+    out.updated_at = json_value_or<long long>(usage, "updatedAt", 0LL);
+    if (usage.contains("providers") && usage["providers"].is_array()) {
+        for (const auto& provider : usage["providers"]) {
+            if (!provider.is_object()) continue;
+            OpenClawProviderUsage item;
+            item.provider = json_value_or<std::string>(provider, "provider", "");
+            item.display_name = json_value_or<std::string>(provider, "displayName", "");
+            item.plan = json_value_or<std::string>(provider, "plan", "");
+            if (provider.contains("windows") && provider["windows"].is_array()) {
+                for (const auto& window : provider["windows"]) {
+                    if (!window.is_object()) continue;
+                    OpenClawUsageWindow w;
+                    w.label = json_value_or<std::string>(window, "label", "");
+                    w.used_percent = json_value_or<int>(window, "usedPercent", -1);
+                    w.reset_at = json_value_or<long long>(window, "resetAt", 0LL);
+                    item.windows.push_back(std::move(w));
+                }
+            }
+            out.providers.push_back(std::move(item));
         }
     }
     return out;

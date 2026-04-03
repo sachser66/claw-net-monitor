@@ -27,6 +27,17 @@ struct OpenClawSession {
     std::string subagent_role;
     std::string label;
     long long updated_at = 0;
+    long long input_tokens = -1;
+    long long output_tokens = -1;
+    long long cache_read_tokens = -1;
+    long long cache_write_tokens = -1;
+    long long total_tokens = -1;
+    long long remaining_tokens = -1;
+    long long context_tokens = -1;
+    int percent_used = -1;
+    bool total_tokens_fresh = false;
+    bool aborted_last_run = false;
+    bool system_sent = false;
 };
 
 struct OpenClawAgentConfig {
@@ -105,6 +116,25 @@ struct OpenClawStatusSummary {
     int system_sessions = 0;
     int max_percent_used = 0;
     std::string hottest_session;
+};
+
+struct OpenClawUsageWindow {
+    std::string label;
+    int used_percent = -1;
+    long long reset_at = 0;
+};
+
+struct OpenClawProviderUsage {
+    std::string provider;
+    std::string display_name;
+    std::string plan;
+    std::vector<OpenClawUsageWindow> windows;
+};
+
+struct OpenClawUsageSummary {
+    bool available = false;
+    long long updated_at = 0;
+    std::vector<OpenClawProviderUsage> providers;
 };
 
 struct OpenClawUsageCostSummary {

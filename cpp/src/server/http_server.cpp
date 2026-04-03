@@ -114,12 +114,21 @@ function renderSession(node, kind){
   const s=node.session||{};
   const lineClass = kind==='sub' ? 'sessionLine sub' : (kind==='other' ? 'sessionLine other' : 'sessionLine');
   const prefix = kind==='sub' ? '&rarr; subagent' : (kind==='orchestrator' ? '* orchestrator' : '-');
+  const total = s.total_tokens >= 0 ? s.total_tokens : '-';
+  const remaining = s.remaining_tokens >= 0 ? s.remaining_tokens : '-';
+  const used = s.percent_used >= 0 ? (String(s.percent_used) + '%') : '-';
+  const fresh = s.total_tokens_fresh ? 'fresh' : 'stale';
+  const input = s.input_tokens >= 0 ? s.input_tokens : '-';
+  const output = s.output_tokens >= 0 ? s.output_tokens : '-';
+  const cache = s.cache_read_tokens >= 0 ? s.cache_read_tokens : '-';
   return `<div class="${lineClass}">
     <span class="label c-white">${prefix}</span>
     <span class="sep"> | </span>${renderKv('channel', node.channel||'-')}
     <span class="sep"> | </span>${renderKv('session', node.session_name||'-')}
     <span class="sep"> | </span>${renderKv('model', s.model||'-')}
     <span class="sep"> | </span>${renderKv('provider', s.model_provider||'-')}
+    <div class="agentMeta2">${renderKv('tokens:', total)} <span class="sep">|</span> ${renderKv('remaining:', remaining)} <span class="sep">|</span> ${renderKv('used:', used)} <span class="sep">|</span> ${renderKv('fresh:', fresh)}</div>
+    <div class="agentMeta2">${renderKv('input:', input)} <span class="sep">|</span> ${renderKv('output:', output)} <span class="sep">|</span> ${renderKv('cache:', cache)}</div>
   </div>`;
 }
 function sessionCountForAgent(group){
@@ -170,8 +179,9 @@ async function load(){
         <div class="section c-muted">Health / usage summary:</div>
         <div class="agent">
           <div class="agentMeta">${renderKv('channels ok:', `${open.health?.healthy_channels ?? 0}/${open.health?.configured_channels ?? 0}`)} <span class="sep">|</span> ${renderKv('heartbeat agents:', open.health?.heartbeat_enabled_agents ?? 0)} <span class="sep">|</span> ${renderKv('pressure >=80%:', open.status?.session_pressure_high ?? 0)}</div>
-          <div class="agentMeta2">${renderKv('max used:', `${open.status?.max_percent_used ?? 0}%`)} <span class="sep">|</span> ${renderKv('cost 7d:', open.usage_cost?.available ? ('$' + Number(open.usage_cost.total_cost || 0).toFixed(2) + ' (€' + Number(open.usage_cost.total_cost_eur || 0).toFixed(2) + ')') : '-')} <span class="sep">|</span> ${renderKv('today:', open.usage_cost?.available ? ('$' + Number(open.usage_cost.today_cost || 0).toFixed(2) + ' (€' + Number(open.usage_cost.today_cost_eur || 0).toFixed(2) + ')') : '-')}</div>
+          <div class="agentMeta2">${renderKv('max used:', `${open.status?.max_percent_used ?? 0}%`)} <span class="sep">|</span> ${renderKv('cost 7d:', open.usage_cost?.available ? ('$' + Number(open.usage_cost.total_cost || 0).toFixed(2) + ' (~€' + Number(open.usage_cost.total_cost_eur || 0).toFixed(2) + ')') : '-')} <span class="sep">|</span> ${renderKv('today:', open.usage_cost?.available ? ('$' + Number(open.usage_cost.today_cost || 0).toFixed(2) + ' (~€' + Number(open.usage_cost.today_cost_eur || 0).toFixed(2) + ')') : '-')}</div>
         </div>
+        <div class="agentMeta2">${(open.usage?.providers||[]).map(p => `${esc(p.display_name || p.provider || '-')}${p.plan ? ' ' + esc(p.plan) : ''}${(p.windows||[]).slice(0,2).map(w => ' | ' + esc(w.label) + ' ' + esc(w.used_percent) + '%').join('')}`).join(' || ') || 'Keine Provider-Usage'}</div>
 
         <div class="section c-muted">Agents from openclaw.json:</div>
         ${(open.agents||[]).map(agent => {

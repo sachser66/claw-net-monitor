@@ -71,7 +71,7 @@ int main() {
     const auto app_started_at = Clock::now();
     auto last = Clock::now();
     auto next_tick = Clock::now();
-    CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache, models_cache, channels_cache, health_cache, status_cache, usage_cost_cache;
+    CachedText ss_cache, openclaw_cache, gateway_cache, config_cache, docker_net_cache, docker_ps_cache, models_cache, channels_cache, health_cache, status_cache, usage_cache, usage_cost_cache;
     TriggerState trigger_state;
     long long session_update_seq = 0;
     int tick = 0;
@@ -130,6 +130,12 @@ int main() {
             status_cache.fetched_at = now;
             status_cache.ready = true;
         }
+        if (!usage_cache.ready || now - usage_cache.fetched_at > std::chrono::seconds(30)) {
+            const auto next = exec_read("openclaw status --usage --json 2>/dev/null || true");
+            if (!next.empty()) usage_cache.text = next;
+            usage_cache.fetched_at = now;
+            usage_cache.ready = true;
+        }
         if (!usage_cost_cache.ready || now - usage_cost_cache.fetched_at > std::chrono::seconds(120)) {
             const auto next = exec_read("openclaw gateway usage-cost --json --days 7 2>/dev/null || true");
             if (!next.empty()) usage_cost_cache.text = next;
@@ -155,6 +161,7 @@ int main() {
         snapshot.openclaw_session_count = parse_session_count(openclaw_cache.text);
         snapshot.openclaw_session_items = extract_sessions(openclaw_cache.text);
         merge_session_store_metadata(snapshot.openclaw_session_items, openclaw_cache.text);
+        merge_status_session_metrics(snapshot.openclaw_session_items, status_cache.text);
         snapshot.openclaw_session_hierarchy = build_session_hierarchy(snapshot.openclaw_session_items);
         snapshot.openclaw_agents = extract_agent_configs(config_cache.text);
         snapshot.openclaw_models = extract_models(models_cache.text);
@@ -164,6 +171,7 @@ int main() {
         snapshot.gateway = extract_gateway_info(gateway_cache.text);
         snapshot.openclaw_health = extract_health_summary(health_cache.text);
         snapshot.openclaw_status = extract_status_summary(status_cache.text);
+        snapshot.openclaw_usage = extract_usage_summary(usage_cache.text);
         snapshot.openclaw_usage_cost = extract_usage_cost_summary(usage_cost_cache.text);
         if (snapshot.openclaw_agents.empty() && !config_cache.text.empty()) {
             snapshot.openclaw_agents = extract_agent_configs(read_file_text("/home/tr4/.openclaw/openclaw.json"));
@@ -172,6 +180,7 @@ int main() {
             snapshot.gateway = extract_gateway_info(gateway_cache.text);
         snapshot.openclaw_health = extract_health_summary(health_cache.text);
         snapshot.openclaw_status = extract_status_summary(status_cache.text);
+        snapshot.openclaw_usage = extract_usage_summary(usage_cache.text);
         snapshot.openclaw_usage_cost = extract_usage_cost_summary(usage_cost_cache.text);
         }
         snapshot.openclaw_sockets = parse_openclaw_sockets(ss_cache.text);
