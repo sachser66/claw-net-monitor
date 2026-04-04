@@ -380,8 +380,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             std::string auth_text = "-";
             for (const auto& m : snapshot.openclaw_models) {
                 if (m.key == model) {
-                    auth_text = m.auth_type.empty() ? "-" : m.auth_type;
-                    if (!m.auth_id.empty()) auth_text += " (" + m.auth_id + ")";
+                    auth_text = m.auth_profile.empty() ? "-" : m.auth_profile;
                     break;
                 }
             }

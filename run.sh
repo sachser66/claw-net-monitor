@@ -21,17 +21,45 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-if [ -f "$PID_FILE" ]; then
-  OLD_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
-  if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
-    echo "[claw-net-monitor] läuft bereits mit PID $OLD_PID"
-    echo "[claw-net-monitor] stoppe alten Prozess oder beende ihn sauber, bevor du neu startest"
-    exit 1
+stop_old_monitors() {
+  local pids=()
+  local OLD_PID=""
+
+  if [ -f "$PID_FILE" ]; then
+    OLD_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
+    if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+      pids+=("$OLD_PID")
+    fi
+    rm -f "$PID_FILE"
   fi
-  rm -f "$PID_FILE"
-fi
-printf '%s
-' "$$" > "$PID_FILE"
+
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    [ "$pid" = "$$" ] && continue
+    case " ${pids[*]} " in
+      *" $pid "*) ;;
+      *) pids+=("$pid") ;;
+    esac
+  done < <(pgrep -f "$BIN" || true)
+
+  if [ ${#pids[@]} -gt 0 ]; then
+    echo "[claw-net-monitor] stoppe alte Prozesse: ${pids[*]}"
+    kill "${pids[@]}" 2>/dev/null || true
+    sleep 2
+    for pid in "${pids[@]}"; do
+      if kill -0 "$pid" 2>/dev/null; then
+        echo "[claw-net-monitor] Prozess $pid reagiert nicht, sende SIGKILL"
+        kill -9 "$pid" 2>/dev/null || true
+      fi
+    done
+  fi
+
+  rmdir "$LOCK_DIR" 2>/dev/null || true
+  mkdir -p "$LOCK_DIR"
+}
+
+stop_old_monitors
+printf '%s\n' "$$" > "$PID_FILE"
 
 needs_build=0
 if [ ! -x "$BIN" ]; then

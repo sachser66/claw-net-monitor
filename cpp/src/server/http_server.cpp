@@ -192,7 +192,7 @@ async function load(){
           return `<div class="agent">
             <div class="agentHeader">[<span class="${clsForValue(agent.id)}">${esc(agent.id)}</span>] <span class="valueBox">${sessionCountForAgent(group)} sessions</span></div>
             <div class="agentMeta">${renderKv('name:', agent.name || '-')} <span class="sep">|</span> ${renderKv('busy', group.orchestrators.length ? 'orchestrating' : (sessionCountForAgent(group) ? 'warm' : 'idle'))}</div>
-            <div class="agentMeta2">${renderKv('model:', agent.model_primary || '-')} <span class="sep">|</span> ${renderKv('auth:', ((auth.auth_type||'-') + (auth.auth_id ? ' (' + auth.auth_id + ')' : '')))}</div>
+            <div class="agentMeta2">${renderKv('model:', agent.model_primary || '-')} <span class="sep">|</span> ${renderKv('auth:', auth.auth_profile || '-')}</div>
             <div class="agentMeta2">${renderKv('model-status:', agent.primary_model_available ? 'primary ok' : 'primary missing')} <span class="sep">|</span> ${renderKv('accounts:', (agent.bound_accounts||[]).join(', ') || '-')}</div>
             <div class="agentMeta2">${renderKv('channels:', (agent.bound_channels||[]).join(', ') || '-')}</div>
             <div class="agentMeta2">${renderKv('workspace:', agent.workspace || '-')}</div>
@@ -240,7 +240,7 @@ async function load(){
           <div class="section c-muted">Docker networks</div>
           <div class="list">${(docker.networks||[]).map(x => `<div class="row mono">${esc(x)}</div>`).join('') || '<div class="row">Keine Docker-Netze</div>'}</div>
           <div class="section c-muted">Models</div>
-          <div class="list">${models.slice(0,8).map(m => `<div class="row mono">${renderKv('model:', m.key||'-')} <span class="sep">|</span> ${renderKv('auth:', ((m.auth_type||'-') + (m.auth_id ? ' (' + m.auth_id + ')' : '')))} <span class="sep">|</span> ${renderKv('status:', m.available ? 'available' : 'missing')}</div>`).join('') || '<div class="row">Keine Model-Daten</div>'}</div>
+          <div class="list">${models.slice(0,8).map(m => `<div class="row mono">${renderKv('model:', m.key||'-')} <span class="sep">|</span> ${renderKv('auth:', m.auth_profile||'-')} <span class="sep">|</span> ${renderKv('status:', m.available ? 'available' : 'missing')}</div>`).join('') || '<div class="row">Keine Model-Daten</div>'}</div>
           <div class="section c-muted">Channels</div>
           <div class="list">${channels.map(c => `<div class="row mono">${renderKv('kind:', c.kind||'-')} <span class="sep">|</span> ${renderKv('account:', c.account_id||'-')}</div>`).join('') || '<div class="row">Keine Channel-Daten</div>'}</div>
         </div>

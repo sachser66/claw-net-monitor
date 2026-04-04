@@ -59,6 +59,7 @@ struct OpenClawModelInfo {
     std::string key;
     std::string name;
     std::string provider;
+    std::string auth_profile;
     std::string auth_id;
     std::string auth_type;
     bool available = false;

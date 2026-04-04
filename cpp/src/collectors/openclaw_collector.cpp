@@ -255,31 +255,99 @@ void merge_session_store_metadata(std::vector<OpenClawSession>& sessions, const 
 std::vector<OpenClawModelInfo> extract_models(const std::string& text) {
     std::vector<OpenClawModelInfo> items;
     json root = parse_json_loose(text);
-    if (root.is_discarded() || !root.contains("models") || !root["models"].is_array()) return items;
+    if (root.is_discarded()) return items;
 
-    std::unordered_map<std::string, std::pair<std::string, std::string>> auth_by_provider;
-    if (root.contains("auth") && root["auth"].is_array()) {
-        for (const auto& item : root["auth"]) {
-            const std::string provider = item.value("provider", "");
-            const std::string auth_id = item.value("id", "");
-            const std::string auth_type = item.value("type", "");
+    struct AuthBinding {
+        std::string profile;
+        std::string auth_id;
+        std::string auth_type;
+    };
+
+    std::unordered_map<std::string, AuthBinding> auth_by_provider;
+
+    if (root.contains("auth") && root["auth"].is_object() && root["auth"].contains("profiles") && root["auth"]["profiles"].is_object()) {
+        for (auto it = root["auth"]["profiles"].begin(); it != root["auth"]["profiles"].end(); ++it) {
+            if (!it.value().is_object()) continue;
+            const std::string profile_name = it.key();
+            const std::string provider = it.value().value("provider", "");
+            const std::string auth_type = it.value().value("mode", "");
             if (!provider.empty() && !auth_by_provider.count(provider)) {
-                auth_by_provider[provider] = {auth_id, auth_type};
+                auth_by_provider[provider] = {profile_name, profile_name, auth_type};
             }
         }
     }
 
-    for (const auto& item : root["models"]) {
+    json models_json = json::array();
+    if (root.contains("models") && root["models"].is_array()) {
+        models_json = root["models"];
+    } else if (root.contains("models") && root["models"].is_object()) {
+        for (auto it = root["models"].begin(); it != root["models"].end(); ++it) {
+            json item = json::object();
+            item["key"] = it.key();
+            if (it.value().is_object()) {
+                for (auto vit = it.value().begin(); vit != it.value().end(); ++vit) item[vit.key()] = vit.value();
+            }
+            models_json.push_back(item);
+        }
+    }
+
+    if (models_json.empty()) {
+        json config_root = json::parse(read_file_text("/home/tr4/.openclaw/openclaw.json"), nullptr, false);
+        if (!config_root.is_discarded()) {
+            if (auth_by_provider.empty() && config_root.contains("auth") && config_root["auth"].is_object() &&
+                config_root["auth"].contains("profiles") && config_root["auth"]["profiles"].is_object()) {
+                for (auto it = config_root["auth"]["profiles"].begin(); it != config_root["auth"]["profiles"].end(); ++it) {
+                    if (!it.value().is_object()) continue;
+                    const std::string profile_name = it.key();
+                    const std::string provider = it.value().value("provider", "");
+                    const std::string auth_type = it.value().value("mode", "");
+                    if (!provider.empty() && !auth_by_provider.count(provider)) {
+                        auth_by_provider[provider] = {profile_name, profile_name, auth_type};
+                    }
+                }
+            }
+
+            if (config_root.contains("models") && config_root["models"].is_object()) {
+                for (auto it = config_root["models"].begin(); it != config_root["models"].end(); ++it) {
+                    json item = json::object();
+                    item["key"] = it.key();
+                    if (it.value().is_object()) {
+                        for (auto vit = it.value().begin(); vit != it.value().end(); ++vit) item[vit.key()] = vit.value();
+                    }
+                    item["available"] = true;
+                    item["missing"] = false;
+                    models_json.push_back(item);
+                }
+            }
+        }
+    } else if (auth_by_provider.empty()) {
+        json config_root = json::parse(read_file_text("/home/tr4/.openclaw/openclaw.json"), nullptr, false);
+        if (!config_root.is_discarded() && config_root.contains("auth") && config_root["auth"].is_object() &&
+            config_root["auth"].contains("profiles") && config_root["auth"]["profiles"].is_object()) {
+            for (auto it = config_root["auth"]["profiles"].begin(); it != config_root["auth"]["profiles"].end(); ++it) {
+                if (!it.value().is_object()) continue;
+                const std::string profile_name = it.key();
+                const std::string provider = it.value().value("provider", "");
+                const std::string auth_type = it.value().value("mode", "");
+                if (!provider.empty() && !auth_by_provider.count(provider)) {
+                    auth_by_provider[provider] = {profile_name, profile_name, auth_type};
+                }
+            }
+        }
+    }
+
+    for (const auto& item : models_json) {
         OpenClawModelInfo m;
         m.key = item.value("key", "");
         m.name = item.value("name", "");
-        m.available = item.value("available", false) && !item.value("missing", false);
+        m.available = item.value("available", true) && !item.value("missing", false);
         auto slash = m.key.find('/');
         m.provider = slash == std::string::npos ? "" : m.key.substr(0, slash);
         auto auth_it = auth_by_provider.find(m.provider);
         if (auth_it != auth_by_provider.end()) {
-            m.auth_id = auth_it->second.first;
-            m.auth_type = auth_it->second.second;
+            m.auth_profile = auth_it->second.profile;
+            m.auth_id = auth_it->second.auth_id;
+            m.auth_type = auth_it->second.auth_type;
         }
         if (!m.key.empty()) items.push_back(std::move(m));
     }
