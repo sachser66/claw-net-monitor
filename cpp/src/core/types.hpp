@@ -26,6 +26,7 @@ struct OpenClawSession {
     std::string spawned_by;
     std::string subagent_role;
     std::string label;
+    std::string thinking_level;
     long long updated_at = 0;
     long long input_tokens = -1;
     long long output_tokens = -1;

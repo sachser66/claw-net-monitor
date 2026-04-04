@@ -31,6 +31,7 @@ void write_session_json(std::ostringstream& out, const OpenClawSession& s) {
     out << "\"provider\":\"" << escape_json(s.provider) << "\",";
     out << "\"spawned_by\":\"" << escape_json(s.spawned_by) << "\",";
     out << "\"label\":\"" << escape_json(s.label) << "\",";
+    out << "\"thinking_level\":\"" << escape_json(s.thinking_level) << "\",";
     out << "\"input_tokens\":" << s.input_tokens << ",";
     out << "\"output_tokens\":" << s.output_tokens << ",";
     out << "\"cache_read_tokens\":" << s.cache_read_tokens << ",";

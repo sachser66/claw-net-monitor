@@ -82,6 +82,7 @@ std::vector<OpenClawSession> extract_sessions(const std::string& text) {
         s.spawned_by = item.value("spawnedBy", "");
         s.subagent_role = item.value("subagentRole", "");
         s.label = item.value("label", "");
+        s.thinking_level = item.value("thinkingLevel", "");
         s.updated_at = item.value("updatedAt", 0LL);
         s.input_tokens = json_value_or<long long>(item, "inputTokens", -1LL);
         s.output_tokens = json_value_or<long long>(item, "outputTokens", -1LL);
@@ -476,6 +477,7 @@ void merge_status_session_metrics(std::vector<OpenClawSession>& sessions, const 
         if (s.remaining_tokens < 0) s.remaining_tokens = json_value_or<long long>(item, "remainingTokens", -1LL);
         if (s.context_tokens < 0) s.context_tokens = json_value_or<long long>(item, "contextTokens", -1LL);
         if (s.percent_used < 0) s.percent_used = json_value_or<int>(item, "percentUsed", -1);
+        if (s.thinking_level.empty()) s.thinking_level = json_value_or<std::string>(item, "thinkingLevel", "");
         s.total_tokens_fresh = s.total_tokens_fresh || json_value_or<bool>(item, "totalTokensFresh", false);
         s.aborted_last_run = s.aborted_last_run || json_value_or<bool>(item, "abortedLastRun", false);
         s.system_sent = s.system_sent || json_value_or<bool>(item, "systemSent", false);

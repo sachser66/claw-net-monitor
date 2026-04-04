@@ -70,6 +70,25 @@ CLAW_MONITOR_PORT=8090 ./run.sh
   - `~/.openclaw/openclaw.json`
 - zusätzliche Session-Metadaten aus lokalen Session-Stores
 
+## Aktueller Summary-Stand
+
+Die Plaintext-Summary (`/api/summary`, `/api/summary-full`, `monitor-summary.sh`) nutzt aktuell diese Lesart:
+
+- **Usage oben als `left` statt `used`**
+  - Beispiel: `5h 28% left ⏱14m (resets Sat 15:04)`
+  - Beispiel: `Week 72% left ⏱5d 5h (resets Thu 20:34)`
+- **Top-Sessions ebenfalls als `left`**
+- **Sessionzeilen ebenfalls als `left`**
+- **Thinking-Level pro Session**, wenn von OpenClaw geliefert
+  - Beispiel: `model gpt-5.4 | think medium | left 47% ...`
+- **Tokenzahlen mit Tausenderpunkten**
+  - Beispiel: `145.386`
+- **`remaining` bedeutet verbleibende Tokens im Kontextfenster**
+
+Wichtig:
+- Das bestehende **Agent → Subagent → Session**-Layout wurde dabei bewusst **nicht** umgebaut.
+- TUI, WebUI und Plaintext wurden in dieser Runde nur inhaltlich angeglichen, nicht gestalterisch neu strukturiert.
+
 ## Manuell bauen
 
 ```bash

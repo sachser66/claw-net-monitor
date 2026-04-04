@@ -303,8 +303,8 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
             {color_for_value(std::to_string(h.healthy_channels) + "/" + std::to_string(h.configured_channels)), std::to_string(h.healthy_channels) + "/" + std::to_string(h.configured_channels)},
             {10, " | Pressure>=80%: "},
             {s.session_pressure_high > 0 ? 3 : 6, std::to_string(s.session_pressure_high)},
-            {10, " | Max used: "},
-            {color_for_value(std::to_string(s.max_percent_used) + "%"), std::to_string(s.max_percent_used) + "%"},
+            {10, " | Max left: "},
+            {color_for_value(std::to_string(std::max(0, 100 - s.max_percent_used)) + "%"), std::to_string(std::max(0, 100 - s.max_percent_used)) + "%"},
             {10, " | Cost 7d: "},
             {color_for_value(cost7d), cost7d}
         });
@@ -318,7 +318,7 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
                 std::string summary = name;
                 if (!provider.plan.empty()) summary += " " + provider.plan;
                 for (std::size_t i = 0; i < provider.windows.size() && i < 2; ++i) {
-                    summary += " | " + provider.windows[i].label + " " + std::to_string(provider.windows[i].used_percent) + "%";
+                    summary += " | " + provider.windows[i].label + " " + std::to_string(std::max(0, 100 - provider.windows[i].used_percent)) + "% left";
                 }
                 usage_segments.push_back({color_for_value(summary), summary});
             }
@@ -485,14 +485,14 @@ void render_terminal(const Snapshot& snapshot, const std::vector<GroupStat>& gro
         if (row >= oc_bottom) return;
         std::string total = s.total_tokens >= 0 ? std::to_string(s.total_tokens) : "-";
         std::string remaining = s.remaining_tokens >= 0 ? std::to_string(s.remaining_tokens) : "-";
-        std::string used = s.percent_used >= 0 ? std::to_string(s.percent_used) + "%" : "-";
+        std::string used = s.percent_used >= 0 ? std::to_string(std::max(0, 100 - s.percent_used)) + "%" : "-";
         std::string fresh = s.total_tokens_fresh ? "fresh" : "stale";
         print_segments(row++, indent + 2, w - indent - 4, {
             {10, "tokens: "},
             {s.total_tokens_fresh ? color_for_value(total) : 3, total},
             {10, " | remaining: "},
             {s.remaining_tokens >= 0 && s.remaining_tokens < 20000 ? 3 : color_for_value(remaining), remaining},
-            {10, " | used: "},
+            {10, " | left: "},
             {s.percent_used >= 80 ? 3 : color_for_value(used), used},
             {10, " | "},
             {s.total_tokens_fresh ? 6 : 3, fresh}

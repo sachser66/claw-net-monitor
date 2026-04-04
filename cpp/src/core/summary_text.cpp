@@ -1,6 +1,7 @@
 #include "summary_text.hpp"
 
 #include <algorithm>
+#include <ctime>
 #include <iomanip>
 #include <sstream>
 #include <vector>
@@ -14,6 +15,52 @@ std::string short_session_name(const OpenClawSession& s) {
     return key.substr(pos + 1);
 }
 
+
+std::string format_reset_at(long long reset_at_ms) {
+    if (reset_at_ms <= 0) return "";
+    const std::time_t reset_at = static_cast<std::time_t>(reset_at_ms / 1000);
+    std::tm local_tm{};
+    if (!localtime_r(&reset_at, &local_tm)) return "";
+    std::ostringstream out;
+    out << std::put_time(&local_tm, "%a %H:%M");
+    return out.str();
+}
+
+std::string format_duration_short(long long ms) {
+    if (ms <= 0) return "";
+    long long total_sec = ms / 1000;
+    long long days = total_sec / 86400;
+    long long hours = (total_sec % 86400) / 3600;
+    long long mins = (total_sec % 3600) / 60;
+    std::ostringstream out;
+    if (days > 0) {
+        out << days << "d";
+        if (hours > 0) out << " " << hours << "h";
+        return out.str();
+    }
+    if (hours > 0) {
+        out << hours << "h";
+        if (mins > 0) out << " " << mins << "m";
+        return out.str();
+    }
+    out << std::max(1LL, mins) << "m";
+    return out.str();
+}
+
+long long now_ms() {
+    return static_cast<long long>(std::time(nullptr)) * 1000;
+}
+
+std::string format_int_de(long long value) {
+    std::string s = std::to_string(value);
+    int insert_pos = static_cast<int>(s.size()) - 3;
+    while (insert_pos > 0) {
+        s.insert(insert_pos, ".");
+        insert_pos -= 3;
+    }
+    return s;
+}
+
 std::string money(double usd, double eur) {
     std::ostringstream out;
     out << "$" << std::fixed << std::setprecision(2) << usd
@@ -25,9 +72,10 @@ std::string format_session_line(const OpenClawSession& s) {
     std::ostringstream out;
     out << short_session_name(s);
     if (!s.model.empty()) out << " | model " << s.model;
-    if (s.percent_used >= 0) out << " | used " << s.percent_used << "%";
-    if (s.total_tokens >= 0) out << " | tok " << s.total_tokens;
-    if (s.remaining_tokens >= 0) out << " | rem " << s.remaining_tokens;
+    if (!s.thinking_level.empty()) out << " | think " << s.thinking_level;
+    if (s.percent_used >= 0) out << " | left " << std::max(0, 100 - s.percent_used) << "%";
+    if (s.total_tokens >= 0) out << " | tok " << format_int_de(s.total_tokens);
+    if (s.remaining_tokens >= 0) out << " | remaining " << format_int_de(s.remaining_tokens);
     out << " | " << (s.total_tokens_fresh ? "fresh" : "stale");
     return out.str();
 }
@@ -48,7 +96,7 @@ std::string snapshot_to_summary_text(const Snapshot& snapshot, bool full) {
             out << (provider.display_name.empty() ? provider.provider : provider.display_name);
             if (!provider.plan.empty()) out << " " << provider.plan;
             for (std::size_t j = 0; j < provider.windows.size() && j < 2; ++j) {
-                out << " | " << provider.windows[j].label << " " << provider.windows[j].used_percent << "%";
+                out << " | " << provider.windows[j].label << " " << std::max(0, 100 - provider.windows[j].used_percent) << "% left"; const auto remaining = format_duration_short(provider.windows[j].reset_at - now_ms()); if (!remaining.empty()) out << " ⏱" << remaining; const auto reset = format_reset_at(provider.windows[j].reset_at); if (!reset.empty()) out << " (resets " << reset << ")";
             }
         }
         out << "\n";
@@ -81,8 +129,8 @@ std::string snapshot_to_summary_text(const Snapshot& snapshot, bool full) {
         out << "• Top sessions:\n";
         for (std::size_t i = 0; i < hottest.size() && i < 3; ++i) {
             out << "  - " << hottest[i].agent << ": " << hottest[i].key;
-            if (hottest[i].percent >= 0) out << " | " << hottest[i].percent << "% used";
-            if (hottest[i].total >= 0) out << " | " << hottest[i].total << " tok";
+            if (hottest[i].percent >= 0) out << " | " << std::max(0, 100 - hottest[i].percent) << "% left";
+            if (hottest[i].total >= 0) out << " | " << format_int_de(hottest[i].total) << " tok";
             out << "\n";
         }
     }
@@ -107,7 +155,7 @@ std::string snapshot_to_summary_text(const Snapshot& snapshot, bool full) {
             if (!s.total_tokens_fresh) stale++;
         }
         out << "• " << agent.id << ": sessions " << count;
-        out << " | tokens " << (has_tokens ? std::to_string(total_tokens) : std::string("-"));
+        out << " | tokens " << (has_tokens ? format_int_de(total_tokens) : std::string("-"));
         out << " | pressured " << pressured;
         out << " | stale " << stale << "\n";
     }
